@@ -1,0 +1,56 @@
+# Where the application is allowed to talk OUT to.
+#
+# NOT APPLIED BY install.sh, and that is deliberate: an egress policy that is slightly
+# wrong takes the tool off the air in a way that looks like an application fault, and
+# you should decide it rather than inherit it. Read it, set the address, apply it.
+#
+# WHY IT IS WORTH THE TROUBLE. The pod holds a token that spends money and handles the
+# names of people under investigation. Without an egress rule, a compromised pod can
+# reach anything the cluster can, and exfiltration looks exactly like ordinary traffic.
+# With one, the only places it can send bytes are the database, DNS, and the index.
+#
+# THE AWKWARD PART, stated rather than hidden. Kubernetes egress rules take IP blocks,
+# not names, so "leakosintapi.com" cannot be written here; it resolves to addresses that
+# can change without warning. Three honest options:
+#
+#   1. Send it through an egress proxy you run, and allow only the proxy. Best, and the
+#      proxy log then also tells you every selector that left, which an incident review
+#      will want.
+#   2. Allow the resolved addresses, and accept that you will find out they moved when
+#      searches start failing.
+#   3. Allow all egress on 443 only. Weak, but it still stops a compromised pod talking
+#      to anything on an arbitrary port.
+#
+# What follows is option 3 with option 1 written out beside it, because 3 is the one
+# that will not page you at two in the morning.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-egress
+  namespace: octopus
+spec:
+  podSelector:
+    matchLabels: { app: octopus-csirt }
+  policyTypes: [Egress]
+  egress:
+    # DNS, or nothing resolves and every failure is confusing
+    - to:
+        - namespaceSelector:
+            matchLabels: { "kubernetes.io/metadata.name": kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # the database
+    - to:
+        - podSelector:
+            matchLabels: { app: octopus-db }
+      ports:
+        - { protocol: TCP, port: 5432 }
+    # the index, over TLS only
+    - ports:
+        - { protocol: TCP, port: 443 }
+    # ---- option 1, the better one: replace the block above with your proxy ----
+    # - to:
+    #     - ipBlock: { cidr: 10.0.0.25/32 }   # the egress proxy
+    #   ports:
+    #     - { protocol: TCP, port: 3128 }

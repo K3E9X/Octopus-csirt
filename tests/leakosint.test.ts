@@ -431,3 +431,31 @@ test("the IP suffix rule is case-sensitive, because 'zip' is not an IP", () => {
     assert.equal(itemsFromRow({ name: "d" }, { [col]: "92.184.104.57" })[0].kind, "ip", col);
   }
 });
+
+// ---- the endpoint carries a credential and a name, so it carries them encrypted -----
+
+test("a plaintext LEAKOSINT_URL is refused", async () => {
+  const before = process.env.LEAKOSINT_URL;
+  const flag = process.env.OCTOPUS_ALLOW_INSECURE_SOURCE;
+  try {
+    process.env.LEAKOSINT_URL = "http://leakosintapi.com/";
+    delete process.env.OCTOPUS_ALLOW_INSECURE_SOURCE;
+    const r = await leakOsint({ token: "t", request: "x@example.com" });
+    // it must not have gone out; the module reports the refusal rather than sending
+    assert.ok(r.error, "a cleartext endpoint must not be used");
+    assert.match(String(r.error), /https/i);
+  } finally {
+    if (before === undefined) delete process.env.LEAKOSINT_URL; else process.env.LEAKOSINT_URL = before;
+    if (flag === undefined) delete process.env.OCTOPUS_ALLOW_INSECURE_SOURCE; else process.env.OCTOPUS_ALLOW_INSECURE_SOURCE = flag;
+  }
+});
+
+test("https is fine, and an explicit override exists for a local stub", () => {
+  const before = process.env.LEAKOSINT_URL;
+  try {
+    process.env.LEAKOSINT_URL = "https://proxy.internal/leakosint";
+    assert.doesNotThrow(() => leakOsint({ token: "t", request: "x" }));
+  } finally {
+    if (before === undefined) delete process.env.LEAKOSINT_URL; else process.env.LEAKOSINT_URL = before;
+  }
+});

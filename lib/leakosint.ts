@@ -36,7 +36,33 @@
 
 import { harvest, type ExposureItem, type ExposureKind } from "./exposure";
 
-const ENDPOINT = process.env.LEAKOSINT_URL || "https://leakosintapi.com/";
+/**
+ * Where the index lives, and the one thing that is not negotiable about it.
+ *
+ * Every request carries the token and the selector in its body: the credential that
+ * spends money, and the name of the person being investigated. Over plain HTTP both of
+ * those are readable by anything on the path, which on a corporate network includes
+ * more equipment than anybody enumerates.
+ *
+ * LEAKOSINT_URL is an operator setting, so nothing a user types can reach it, and a
+ * deployment that wants a proxy or a staging endpoint should be able to say so. It just
+ * cannot say so in clear text. A typo that drops the "s" is not worth a leaked token,
+ * and an override is made deliberate rather than silent: OCTOPUS_ALLOW_INSECURE_SOURCE
+ * exists for somebody debugging against a local stub and says what it is in its name.
+ */
+function endpoint(): string | null {
+  const raw = (process.env.LEAKOSINT_URL || "").trim();
+  if (!raw) return "https://leakosintapi.com/";
+  const insecure = /^http:\/\//i.test(raw);
+  if (insecure && process.env.OCTOPUS_ALLOW_INSECURE_SOURCE !== "1") return null;
+  return raw;
+}
+
+/** The refusal, in the words the operator needs to fix it. */
+export const INSECURE_SOURCE =
+  "LEAKOSINT_URL must be https: the token and the selector travel in the request body, " +
+  "and over http both are readable by anything on the path. Set OCTOPUS_ALLOW_INSECURE_SOURCE=1 " +
+  "only against a local stub.";
 const UA = "Octopus-OSINT/0.1";
 
 export interface LeakOsintOpts {
@@ -392,6 +418,12 @@ export async function leakOsint(opts: LeakOsintOpts): Promise<LeakOsintResult> {
 
   if (!opts.token) return { ...empty, error: "no LeakOSINT token configured" };
 
+  // Checked here rather than at the call, so a misconfigured endpoint is reported as a
+  // configuration problem instead of surfacing as "the source could not be reached"
+  // from the network catch below, which is what sends somebody looking at firewalls.
+  const url = endpoint();
+  if (!url) return { ...empty, error: INSECURE_SOURCE };
+
   const body: Record<string, unknown> = {
     token: opts.token,
     request: opts.request,
@@ -405,7 +437,7 @@ export async function leakOsint(opts: LeakOsintOpts): Promise<LeakOsintResult> {
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
   try {
     const res = await spaced(() =>
-      fetch(ENDPOINT, {
+      fetch(url, {
         method: "POST",
         // the API answers 501 to a form-encoded body; it must be JSON
         headers: { "content-type": "application/json", Accept: "application/json", "User-Agent": UA },
