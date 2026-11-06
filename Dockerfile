@@ -1,15 +1,21 @@
-# Octopus Leak — multi-stage build producing a tiny standalone image.
+# Octopus CSIRT, multi-stage build producing a tiny standalone image.
 # Runs anywhere Node runs: Linux or Windows containers, Docker, Kubernetes, bare VM.
 #
-#   docker build -t octopus-leak .
-#   docker run -p 3000:3000 octopus-leak
+#   docker build -t octopus-csirt .
+#   docker run -p 3000:3000 octopus-csirt
+#
+# For k3s see deploy/k3s/. The image runs as a non-root user with a READ-ONLY root
+# filesystem provided /tmp and /app/.next/cache are mounted; the manifest does both.
 #
 # Env (the app runs without any of it, and says what is missing rather than faking it):
 #   LEAKOSINT_TOKEN          → the leak source. Absent: no report, stated as such.
-#   POSTGRES_URL             → accounts, credits, audit trail. Absent: single-operator,
-#                              unmetered, unlogged — never expose that publicly.
+#   POSTGRES_URL             → accounts, credits, cases, audit trail. Absent: single
+#                              operator, unmetered, unlogged, and no cases at all.
 #   OCTOPUS_SESSION_SECRET   → required for sessions to be issued at all.
-#   OCTOPUS_MARKUP           → resale margin over the raw API cost (default 1.6).
+#   OCTOPUS_AUDIT_SECRET     → signs the audit chain. Falls back to the session secret.
+#
+# LEAKOSINT_TOKEN is optional: an owner can paste it into /admin instead, where it is
+# stored in the database and never reaches a pod's environment.
 
 # ---- deps ----
 FROM node:20-alpine AS deps

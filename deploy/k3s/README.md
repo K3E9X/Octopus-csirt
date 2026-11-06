@@ -4,6 +4,23 @@ Four manifests, one image, two secrets. The secrets are **not** in this reposito
 there is no example file to copy, because an example secret is a real secret the first
 time somebody forgets to change it.
 
+## The short version
+
+```sh
+KUBE_CONTEXT=my-k3s \
+IMAGE=registry.internal/octopus-csirt:v1 \
+HOST=octopus.corp.example \
+./deploy/k3s/install.sh
+```
+
+It prints the context and the API server and asks before touching anything, because
+kubectl's current context is whatever you used last and "whatever you used last" is how
+a manifest lands on production. It creates secrets only when they are absent, applies
+everything, waits for both rollouts, and tells you what to do next.
+
+Safe to run again for an upgrade. The rest of this file is what it does and why, for
+when it does not go to plan.
+
 ## 1. Secrets
 
 Generated on your machine, applied directly, never committed.
@@ -31,9 +48,14 @@ reason to do it deliberately rather than in a hurry.
 verifier will say so. That is also correct: the chain proves nothing if the key that
 signs it can be swapped silently. Rotate it when you mean to, and record when.
 
-The LeakOSINT token is optional here. Either add it to `octopus-app` as
-`leakosintToken`, or leave it out and have the owner paste it into `/admin` after the
-first sign-in, which keeps it out of the manifest and out of every pod's environment.
+The LeakOSINT token is **not** here, and the installer does not ask for one. An owner
+pastes it into `/admin` after the first sign-in, where it goes into the database. It
+then never appears in a manifest, in a pod's environment, in a response, or in the audit
+log: the interface shows its last four characters and nothing else. Verified end to end,
+including that a search picks it up with no environment variable set at all.
+
+If you would rather have it in the environment, add it to `octopus-app` as
+`leakosintToken` and the Deployment will read it.
 
 ## 2. The image
 

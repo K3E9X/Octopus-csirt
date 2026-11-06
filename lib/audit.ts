@@ -16,6 +16,7 @@
 //    case still runs, but `auditEnabled` tells the UI whether the trail exists.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { bootstrap } from "./schema";
 import { sql, dbEnabled } from "./db";
 
 export const auditEnabled = dbEnabled;
@@ -39,11 +40,7 @@ export interface AuditEntry {
   note?: string;
 }
 
-let ready: Promise<void> | null = null;
-
-async function ensureAuditSchema(): Promise<void> {
-  if (!ready) {
-    ready = (async () => {
+const ensureAuditSchema = bootstrap(async () => {
       const q = sql();
       if (!q) return;
       await q`CREATE TABLE IF NOT EXISTS octopus_audit (
@@ -64,10 +61,7 @@ async function ensureAuditSchema(): Promise<void> {
       // One row may follow any given row. Two concurrent writers that read the same
       // predecessor now collide here instead of silently forking the chain.
       await q`CREATE UNIQUE INDEX IF NOT EXISTS octopus_audit_prev ON octopus_audit (prev_hash)`;
-    })();
-  }
-  await ready;
-}
+});
 
 /**
  * The signing key. Falls back to the session secret so a deployment that already has

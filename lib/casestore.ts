@@ -12,16 +12,14 @@
 // after an incident is always "who concluded that, and from what".
 
 import { sql, dbEnabled } from "./db";
+import { bootstrap } from "./schema";
 import type { CaseFile, CaseEntity, CaseFact, EntityKind } from "./casework";
 
 export const casesEnabled = dbEnabled;
 
-let ready = false;
-
-async function init(): Promise<boolean> {
+const build = bootstrap(async () => {
   const q = sql();
-  if (!q) return false;
-  if (ready) return true;
+  if (!q) return;
   await q`CREATE TABLE IF NOT EXISTS octopus_cases (
     id         text PRIMARY KEY,
     ref        text NOT NULL,
@@ -65,7 +63,11 @@ async function init(): Promise<boolean> {
   await q`CREATE INDEX IF NOT EXISTS octopus_case_facts_case ON octopus_case_facts (case_id)`;
   // the same value pinned twice to one selector from one dump is one fact
   await q`CREATE UNIQUE INDEX IF NOT EXISTS octopus_case_fact_once ON octopus_case_facts (entity_id, label, value, source)`;
-  ready = true;
+});
+
+async function init(): Promise<boolean> {
+  if (!sql()) return false;
+  await build();
   return true;
 }
 

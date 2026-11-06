@@ -15,6 +15,7 @@
 // pretending a balance it cannot keep.
 
 import { sql, dbEnabled } from "./db";
+import { bootstrap } from "./schema";
 import { estimateCost } from "./leakosint";
 import { randomBytes } from "node:crypto";
 
@@ -99,10 +100,7 @@ export const fmtCredits = (micro: number) => {
 /** For a price rather than a balance, where the figure is already whole. */
 export const fmtPrice = (credits: number) => `${credits} credit${credits === 1 ? "" : "s"}`;
 
-let ready: Promise<void> | null = null;
-async function ensure(): Promise<void> {
-  if (!ready) {
-    ready = (async () => {
+const ensure = bootstrap(async () => {
       const q = sql();
       if (!q) return;
       // credits live ON the user row, one balance per account, the obvious shape
@@ -118,10 +116,7 @@ async function ensure(): Promise<void> {
         at         bigint NOT NULL
       )`;
       await q`CREATE INDEX IF NOT EXISTS octopus_ledger_user ON octopus_ledger (user_id, at DESC)`;
-    })();
-  }
-  await ready;
-}
+});
 
 export interface LedgerRow { id: string; delta: number; balance: number; kind: string; note?: string; at: number; }
 

@@ -11,7 +11,7 @@ const nextConfig = {
    * /app was the investigator console and /check was the self-exposure report; both
    * were removed when the product became one thing. Leaving them to 404 breaks three
    * groups of people at once: anyone holding a bookmark, anyone following an old link,
-   * and — the one that actually bit — anyone whose browser still had the previous
+   * and, the one that actually bit, anyone whose browser still had the previous
    * client bundle cached, because that bundle sends you to /app the moment you sign in.
    * They get a 404 on a page they just authenticated into, with nothing to suggest the
    * tool still exists.

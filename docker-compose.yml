@@ -1,4 +1,6 @@
-# Octopus Leak — the whole product in one command.
+# Octopus CSIRT, the whole thing in one command, for development.
+#
+# This is NOT how it is deployed. For the cluster see deploy/k3s/.
 #
 #   docker compose up --build                 # the app, unmetered, no accounts
 #   POSTGRES_URL=postgres://octopus:octopus@db:5432/octopus \
@@ -7,7 +9,7 @@
 # Then open http://localhost:3000
 #
 # The app detects what is available and says so rather than pretending. Without a
-# database there are no accounts, so there is no metering and no audit trail — which is
+# database there are no accounts, so there is no metering and no audit trail, which is
 # fine for a single operator and NOT fine for anything exposed publicly. Without a
 # LeakOSINT token there is no leak data, and the app says that too instead of returning
 # a clean report nobody should trust.
@@ -15,7 +17,7 @@
 services:
   app:
     build: .
-    image: octopus-leak:local
+    image: octopus-csirt:local
     ports:
       - "3000:3000"
     environment:
@@ -23,15 +25,14 @@ services:
       LEAKOSINT_TOKEN: "${LEAKOSINT_TOKEN:-}"
       LEAKOSINT_LIMIT: "${LEAKOSINT_LIMIT:-}"
       # Accounts, credits and the audit trail. NO DEFAULT on purpose: a default applies
-      # even without --profile db, so `docker compose up` — the line this file opens
-      # with, documented as "unmetered, no accounts" — started with authentication,
+      # even without --profile db, so `docker compose up`, the line this file opens
+      # with, documented as "unmetered, no accounts", started with authentication,
       # metering and logging all switched on, pointing at a `db` host that was never
       # started. Every search then demanded a sign-in that could not be completed.
       # With the db profile, set POSTGRES_URL in your .env or on the command line.
       POSTGRES_URL: "${POSTGRES_URL:-}"
       OCTOPUS_SESSION_SECRET: "${OCTOPUS_SESSION_SECRET:-}"
       # the resale margin over the raw API cost
-      OCTOPUS_MARKUP: "${OCTOPUS_MARKUP:-}"
     restart: unless-stopped
 
   # Accounts, credits and the tamper-evident query log all live here. Enable with:

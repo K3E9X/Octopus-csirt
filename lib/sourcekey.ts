@@ -20,6 +20,7 @@
 //   offering a field that would silently do nothing.
 
 import { sql, dbEnabled } from "./db";
+import { bootstrap } from "./schema";
 
 export const storedKeyAvailable = dbEnabled;
 
@@ -36,10 +37,7 @@ export interface KeyFingerprint {
   setBy?: string;
 }
 
-let ready: Promise<void> | null = null;
-async function ensure(): Promise<void> {
-  if (!ready) {
-    ready = (async () => {
+const ensure = bootstrap(async () => {
       const q = sql();
       if (!q) return;
       // one row per setting; the product has exactly one secret to keep, but a table
@@ -50,10 +48,7 @@ async function ensure(): Promise<void> {
         set_at  bigint NOT NULL,
         set_by  text
       )`;
-    })();
-  }
-  await ready;
-}
+});
 
 const NAME = "leakosint_token";
 

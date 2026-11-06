@@ -120,7 +120,8 @@ metadata:
     # cert-manager.io/cluster-issuer: internal-ca
 spec:
   rules:
-    - host: octopus.internal          # change to the name the team will actually type
+    # install.sh replaces this, and the one in the tls block below, with HOST.
+    - host: octopus.internal
       http:
         paths:
           - path: /
@@ -130,5 +131,6 @@ spec:
                 name: octopus-csirt
                 port: { name: http }
   # tls:
-  #   - hosts: [octopus.internal]
+  #   - hosts:
+  #       - octopus.internal
   #     secretName: octopus-tls

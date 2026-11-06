@@ -11,6 +11,7 @@
 // exposing an instance publicly needs the database.
 
 import { createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual } from "node:crypto";
+import { bootstrap } from "./schema";
 import { promisify } from "node:util";
 import { sql, dbEnabled } from "./db";
 import { passwordProblem } from "./pwrule";
@@ -75,10 +76,7 @@ function secret(): string {
 }
 export const sessionsUsable = () => authEnabled && secret().length >= 16;
 
-let ready: Promise<void> | null = null;
-async function ensureSchema(): Promise<void> {
-  if (!ready) {
-    ready = (async () => {
+const ensureSchema = bootstrap(async () => {
       const q = sql();
       if (!q) return;
       await q`CREATE TABLE IF NOT EXISTS octopus_users (
@@ -120,10 +118,7 @@ async function ensureSchema(): Promise<void> {
         claimed_by text NOT NULL,
         at         bigint NOT NULL
       )`;
-    })();
-  }
-  await ready;
-}
+});
 
 // ---- passwords ---------------------------------------------------------------
 
