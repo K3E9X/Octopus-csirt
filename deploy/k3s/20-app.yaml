@@ -56,6 +56,16 @@ spec:
               valueFrom: { secretKeyRef: { name: octopus-app, key: leakosintToken, optional: true } }
             - name: OCTOPUS_ADMIN_GRANT_MAX
               value: "500"
+            # How long a search answer is kept before it is fetched again. Two days, so
+            # a question asked on Monday afternoon is still free on Wednesday morning,
+            # which is the span an incident actually runs over. Breach data is historic:
+            # nothing appeared in the index in between.
+            #
+            # This is the one place the deployment stores breach data. Every kept answer
+            # is listed in /admin with a button to drop it, and a cache hit still writes
+            # the audit entry. Set it to "0" to turn caching off entirely.
+            - name: OCTOPUS_CACHE_HOURS
+              value: "48"
           # Liveness asks whether THIS PROCESS is serving, and deliberately does not
           # check the database: a probe that fails during a database outage restarts a
           # pod that still cannot reach the database, turning an outage into a crash

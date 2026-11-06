@@ -93,6 +93,27 @@ No migration step. The application creates its own tables on first use and the
 statements are all `IF NOT EXISTS`, so a restart is cheap and a rollback does not leave
 a half-built schema.
 
+## Kept answers
+
+The Deployment sets `OCTOPUS_CACHE_HOURS=48`: a search answer is kept for two days, so
+asking the same question twice costs one credit and a question asked on Monday afternoon
+is still free on Wednesday morning. Breach data is historic, so nothing appeared in the
+index in between.
+
+It is the one place this deployment stores breach data. Every kept answer is listed in
+`/admin` with a button to drop it, a report built from one says so and offers a fresh run
+for a credit, and a cache hit still writes the audit entry, because a cached answer is
+still somebody looking at somebody.
+
+Change it in `20-app.yaml`, or turn it off with `"0"`. It takes a rollout:
+
+```sh
+kubectl --context $CTX -n octopus set env deploy/octopus-csirt OCTOPUS_CACHE_HOURS=48
+```
+
+Remember that the volume holds it. Dropping the cache does not shrink the PVC on its
+own; Postgres reuses the space.
+
 ## 4. The first account
 
 The first registration **claims the deployment**: it becomes the `owner`, atomically,
