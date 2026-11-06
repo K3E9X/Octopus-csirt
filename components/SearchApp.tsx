@@ -191,7 +191,7 @@ export default function SearchApp() {
         <Link className="lk2-brand" href="/"><OctoMark size={30} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
         <nav>
           {account?.authed
-            ? <>{account.metered && typeof account.balance === "number" && <span className="lk2-bal" title="one credit is one standard search">{account.balance.toLocaleString("en-US")} credit{account.balance === 1 ? "" : "s"}</span>}<Link href="/admin">Admin</Link></>
+            ? <>{account.metered && typeof account.balance === "number" && <span className="lk2-bal" title="one credit is one standard search">{account.balance.toLocaleString("en-US")} credit{account.balance === 1 ? "" : "s"}</span>}<Link href="/cases">Cases</Link><Link href="/admin">Admin</Link></>
             : <Link className="lk2-cta" href="/signin">Sign in</Link>}
         </nav>
       </header>

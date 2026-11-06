@@ -205,3 +205,13 @@ test("a carrier NAT or private address joins nothing, whatever it shares", () =>
     assert.equal(g.components.length, 2, ip);
   }
 });
+
+test("the one-line verdict says what the nodes actually are", () => {
+  const g = buildGraph(CHAIN);
+  assert.match(describeGraph(g), /All 3 databases are connected/);
+  // the same graph over a case connects selectors, and saying "databases" there is
+  // wrong in the one place the reader is looking
+  assert.match(describeGraph(g, { one: "selector", many: "selectors" }), /All 3 selectors are connected/);
+  const one = buildGraph([src("A", [f("email", "x@example.com")])]);
+  assert.match(describeGraph(one, { one: "selector", many: "selectors" }), /One selector\./);
+});

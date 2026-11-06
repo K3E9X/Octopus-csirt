@@ -46,7 +46,10 @@ const short = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…
 
 const W = 1000, H = 640;
 
-export default function LeakOrbit({ report }: { report: Report }) {
+/** What the circles are, wherever this is used. A report connects databases; a case connects selectors. */
+export interface Noun { one: string; many: string }
+
+export default function LeakOrbit({ report, noun = { one: "database", many: "databases" } }: { report: Report; noun?: Noun }) {
   const [focus, setFocus] = useState<string | null>(null);
   /** the thread the operator is asking the counterfactual about */
   const [pulled, setPulled] = useState<string | null>(null);
@@ -84,13 +87,13 @@ export default function LeakOrbit({ report }: { report: Report }) {
   }, [hotThread, liveThreads]);
 
   if (!g.nodes.length) {
-    return <div className="lk2-orbit-empty">No database named this subject, so there is nothing to connect.</div>;
+    return <div className="lk2-orbit-empty">Nothing to connect yet.</div>;
   }
 
   return (
     <div className="lk2-orbit">
       <svg className="lk2-orbit-svg" viewBox={`0 0 ${W} ${H}`} role="img"
-        aria-label={`Connection graph: ${describeGraph(g)}`}>
+        aria-label={`Connection graph: ${describeGraph(g, noun)}`}>
         <defs>
           <filter id="lkGlow" x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="2.4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -169,12 +172,12 @@ export default function LeakOrbit({ report }: { report: Report }) {
 
       <div className="lk2-orbit-side">
         <div className="lk2-orbit-card">
-          <div className="lk2-orbit-verdict">{describeGraph(g)}</div>
+          <div className="lk2-orbit-verdict">{describeGraph(g, noun)}</div>
           {/* Without this the picture is a puzzle. Two kinds of circle and a line
               between them is only obvious to whoever drew it. */}
           <p className="lk2-orbit-key">
-            <b>Circles</b> are databases, sized by how much they hold.
-            <b>Dots</b> are values. A line means that database carried that value.
+            <b>Circles</b> are {noun.many}, sized by how much they hold.
+            <b>Dots</b> are values. A line means that {noun.one} carried that value.
           </p>
 
           {/* The counterfactual, stated in full. This is the view's whole argument, so it
@@ -196,14 +199,14 @@ export default function LeakOrbit({ report }: { report: Report }) {
             <p className="lk2-orbit-spine">
               <span>spine</span>
               <code>{short(spine.value, 30)}</code>
-              ties {spine.databases.length} of {g.nodes.length} databases. It is also the best thing to pivot on.
+              ties {spine.databases.length} of {g.nodes.length} {noun.many}. It is also the best thing to pivot on.
             </p>
           )}
 
           {liveThreads.length > 0 ? (
             <>
               <h5>Pull a thread</h5>
-              <p className="lk2-orbit-why">Each is a value two or more databases agree on. Take one away and see whether the person survives it.</p>
+              <p className="lk2-orbit-why">Each is a value two or more {noun.many} agree on. Take one away and see whether the person survives it.</p>
               <ul className="lk2-threads">
                 {liveThreads.slice(0, 14).map((t) => (
                   <li key={t.id}>
@@ -228,7 +231,7 @@ export default function LeakOrbit({ report }: { report: Report }) {
             </>
           ) : (
             <p className="lk2-orbit-note">
-              No value appears in more than one database, so nothing here corroborates anything else.
+              No value appears in more than one {noun.one}, so nothing here corroborates anything else.
               Every row is a single unverified claim.
             </p>
           )}

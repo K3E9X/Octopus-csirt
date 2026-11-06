@@ -1,6 +1,9 @@
-# Octopus Leak
+# Octopus CSIRT
 
-**Breach data, turned into a subject.**
+**Breach data, turned into a case.**
+
+Internal fork of Octopus Leak for the CSIRT. Same index, same attribution, no pricing:
+this one is not sold to anybody, it is worked in.
 
 Give it an email address, a phone number, a handle or a name. It searches
 [LeakOSINT](docs/leakosint-api.md), the one source here, and the only one that returns
@@ -8,7 +11,8 @@ the records themselves rather than a verdict, and gives back more than a list of
 the rows that are genuinely about that subject, consolidated into one person, with the
 database behind every single fact.
 
-The hard part is not the search. It is everything between the response and the report.
+The hard part is not the search. It is everything between the response and the report,
+and then everything between the report and a conclusion somebody can defend.
 
 ## The problem this exists to solve
 
@@ -103,31 +107,80 @@ always runs and **says what is missing** rather than faking it:
 | `OCTOPUS_SESSION_SECRET` | Sessions are refused rather than signed with a shared constant |
 | `OCTOPUS_MARKUP` | Dollar valuation of a credit, as a multiple of the raw API cost (default `1.6`). **Not the margin**; see below |
 
-## The business layer
+## Credits, and why they stayed
 
-The product resells the API. Every query has a raw cost, the operator is charged a
-marked-up price in credits, and the margin is the business.
+Nothing is sold here, and credits stayed anyway. Two reasons, and neither is revenue.
+
+Every query has a real upstream cost, so a typo in a name search at depth 1000 spends
+actual money; a balance is the only thing between that and the bill. And a search that
+costs something is a search somebody decided to run, which is what makes the audit
+trail worth keeping.
 
 **A credit is one search.** A plain address at the default depth costs one; a
 multi-word name costs more because it genuinely is more work upstream, and so does a
-deeper sweep. Charges round up to a whole credit, which keeps a balance a whole number
-of searches and absorbs the variance in the upstream price.
+deeper sweep. Charges round up to a whole credit. The ledger underneath is in
+micro-dollars (integers), because floating-point dollars drift and a balance that
+drifts leaks money in one direction.
 
-The ledger underneath is in micro-dollars (integers), because floating-point dollars
-drift and a balance that drifts leaks money in one direction.
+A new account starts at **zero**. Signing in is not the gate; spending is, and the
+owner opens it per person. That is also the answer to self-registration on an internal
+tool: an account nobody has funded cannot run a single query.
 
-`OCTOPUS_MARKUP` sets what a credit is *worth* in dollars, not what it is *sold* for.
-It cannot change a credit price: a search costs what it costs in work, whatever margin
-is being taken. **The margin lives in what a pack of credits sells for**, which is a
-decision, not a config value, and there is no self-serve way to buy one yet. The balance check and the
-deduction are **one statement**, so two requests racing on the same account cannot both
-pass against a balance that covers one. A query the API refuses is refunded, because it
-did not run. Every movement is recorded, so a balance is always explainable.
+The balance check and the deduction are **one statement**, so two requests racing on the
+same account cannot both pass against a balance that covers one. A query the API refuses
+is refunded, because it did not run.
+
+## Roles
+
+| Role | What it can do |
+| --- | --- |
+| `owner` | Holds the source token and the budget. Grants credit without limit. Claimed once, atomically, by the first registration. |
+| `admin` | Users, roles below owner, the audit trail, closing cases. Grants credit **to others**, bounded, never to itself. |
+| `hunter` | Investigates: cases, searches, pivots, exports. Sees its own queries and nobody else's. |
+| `disabled` | Nothing. |
+
+The split between owner and admin is the point rather than a tidier set of labels: an
+audit trail signed by someone who can also create the budget proves nothing.
+
+## Cases
+
+A hunt does not start as an identity. It starts as a stealer log, an insider's corporate
+address, an IP out of a proxy line. `/cases` is that loop: selectors on the left, the
+correlation in the middle, and what the case is still **missing** at the top, because
+the gap decides the next ten minutes and the summary does not.
+
+**A case holds what somebody pinned, never a cached report.** Caching would be cheaper
+and would turn the case table into a second copy of other people's breach data, held
+indefinitely, with no legal basis separate from the search that produced it. What a case
+stores is the analyst's work: the selectors they chose and the facts they judged
+relevant, each still naming the dump it came from so it can be checked or dropped. Every
+row carries who put it there and when, because the question after an incident is always
+"who concluded that, and from what".
+
+The board derives, at read time:
+
+- **Correlation.** The same graph the report's Orbit draws, over selectors instead of
+  databases, so a line means the same thing on both screens. Pull a thread and it
+  recomputes without it: if the case falls into pieces, that fact was carrying the
+  conclusion.
+- **Addresses.** Sharing an address and sharing an allocation are different claims and
+  are kept apart. A carrier-grade NAT range is held by thousands of subscribers at once,
+  so it is shown, labelled, and **never drawn as a link**.
+- **Machines.** The browser string read into OS, browser and device, with an
+  end-of-life OS or a browser years behind reported as a finding: that is the machine an
+  infostealer lands on. Two selectors on one build cluster as one device.
+- **Location.** Not a location: **evidence** of location, each piece naming its field,
+  its dump, and what it is worth. Sources that disagree are reported as disagreeing.
+  An IP is **not** turned into a country, because that needs a geo database and there is
+  no honest way to infer it from the number. The hook is in `lib/geo.ts`.
+- **Timeline.** Dated activity, with undated entries kept rather than dropped: a hole in
+  a timeline reads as absence of activity, which is a different claim.
 
 ## Structure
 
 ```
-app/search/        the product
+app/search/        the search
+app/cases/         the investigation board
 app/api/search/    GET quotes · POST runs
 lib/leakosint.ts   the source: cost, rate limit, parsing, refusals
 lib/subject.ts     what was asked for, and what to match rows against
@@ -135,15 +188,25 @@ lib/attribution.ts is this row about the subject?
 lib/identity.ts    rows → a person, every value citing its databases
 lib/report.ts      the report, built from attributed rows
 lib/views.ts       the views a report has, one list, so nothing can disagree about it
-lib/credits.ts     the business layer
+lib/credits.ts     the credit ledger
+lib/casework.ts    a case: correlation, devices, location, timeline, gaps
+lib/casestore.ts   where a case lives: three tables, no cached reports
+lib/ua.ts          the browser string, read
+lib/netintel.ts    what an address is, and whether it can carry a link
+lib/geo.ts         evidence of location, and where that stops
 lib/audit.ts       the hash-chained query log
 docs/              the API contract
 ```
 
 ## Legal note
 
-For **legitimate** investigation: fraud, due diligence, threat intelligence, journalism,
-and checking your own exposure. Processing personal data means GDPR applies, legal
-basis, minimisation, limited retention, audit, and data-subject rights. The declared
-basis and the query log exist so those obligations can actually be met rather than
-asserted.
+Internal CSIRT use: incident response, insider investigation, threat intelligence. Processing personal data means GDPR applies, legal
+basis, minimisation, limited retention, audit, and data-subject rights. The declared basis and the query log exist so those obligations can
+actually be met rather than asserted.
+
+**Cases hold personal data.** Pinned facts are breach data about identifiable people,
+kept on our infrastructure for as long as the case exists. That is a processing activity
+in its own right: it needs a basis, a retention period and somebody who owns the
+decision to delete. Nothing here purges automatically, on purpose, because silently
+deleting case files destroys incident records; closing a case and emptying it are
+deliberate acts and should stay that way.

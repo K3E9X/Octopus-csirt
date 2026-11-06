@@ -82,7 +82,7 @@ export default function Landing({ signedIn, demo }: { signedIn: boolean; demo: S
           <a href="#demo">See a report</a>
           <a href="#what">Features</a>
           <a href="#how">How it works</a>
-          {signedIn ? <Link href="/search">Search</Link> : <Link className="lk2-cta" href="/signin">Sign in</Link>}
+          {signedIn ? <><Link href="/cases">Cases</Link><Link href="/search">Search</Link></> : <Link className="lk2-cta" href="/signin">Sign in</Link>}
         </nav>
       </header>
 

@@ -229,13 +229,20 @@ export function pullThread(sources: OrbitSource[], threadId: string): {
   };
 }
 
-/** One line a reader can take away without touching anything. */
-export function describeGraph(g: OrbitGraph): string {
+/**
+ * One line a reader can take away without touching anything.
+ *
+ * The noun is a parameter because the same graph answers the same question about two
+ * different things: over a report it connects DATABASES, over a case it connects
+ * SELECTORS. "All 3 databases are connected" on a board showing three email addresses
+ * is a sentence that is wrong in the one place a reader is looking.
+ */
+export function describeGraph(g: OrbitGraph, noun: { one: string; many: string } = { one: "database", many: "databases" }): string {
   if (!g.nodes.length) return "Nothing to connect.";
-  if (g.nodes.length === 1) return "One database. Nothing corroborates it.";
+  if (g.nodes.length === 1) return `One ${noun.one}. Nothing corroborates it.`;
   const bearing = g.threads.filter((t) => t.loadBearing).length;
   const parts: string[] = [];
-  if (g.components.length === 1) parts.push(`All ${g.nodes.length} databases are connected`);
+  if (g.components.length === 1) parts.push(`All ${g.nodes.length} ${noun.many} are connected`);
   else parts.push(`${g.components.length} fragments, not one person yet`);
   if (g.isolated.length) parts.push(`${g.isolated.length} joined to nothing`);
   if (bearing) parts.push(`${bearing} fact${bearing === 1 ? "" : "s"} load-bearing`);

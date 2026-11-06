@@ -73,6 +73,7 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
     <div className="adm">
       <header className="adm-top">
         <Link className="auth-brand" href="/"><Logo size={26} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
+        <nav className="adm-nav"><Link href="/cases">Cases</Link><Link href="/search">Search</Link></nav>
         <span className="adm-me">{me?.email}</span>
         <span className="flex" />
         <Link className="ping-btn" href="/search">Open the search</Link>

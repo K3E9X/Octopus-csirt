@@ -1526,3 +1526,100 @@ body::after {
 .lk2-hist-basis { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
 .lk2-hist-tag { font-family: var(--font-mono); font-size: 10px; color: var(--accent); border: 1px solid var(--bd); border-radius: var(--r-xs); padding: 1px 6px; }
 .lk2-hist-when { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); white-space: nowrap; }
+
+/* ======================================================================
+   CASES, the hunter's working file.
+
+   Deliberately plainer than the report. A report is read once and has to
+   persuade; a case is lived in for a week and has to stay out of the way.
+   So: no cards where a row will do, one accent, and the thing that is
+   missing at the top rather than the thing that is known.
+   ====================================================================== */
+.csr-main { max-width: var(--page); margin: 0 auto; padding: 28px 0 90px; }
+.csr-h1 { font-weight: 600; font-size: clamp(22px, 2.4vw, 28px); letter-spacing: -.02em; margin: 0 0 18px; }
+.csr-h1 code { font-family: var(--font-mono); font-size: .8em; color: var(--accent); margin-right: 10px; }
+.csr-off { color: var(--ink-3); font-size: 14px; margin: 10px 0; }
+.csr-err { color: var(--accent); font-size: 14px; margin: 10px 0; }
+.csr-head { margin-bottom: 20px; }
+.csr-meta { font-size: 12px; color: var(--ink-4); }
+.csr-link { background: none; border: 0; padding: 0; color: var(--ink-3); font: inherit; font-size: 12px; cursor: pointer; text-decoration: none; transition: color .14s; }
+.csr-link:hover { color: var(--accent); }
+
+.csr-new { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+.csr-new input, .csr-add input, .csr-add select, .csr-pin input, .csr-pin select {
+  background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--r-sm);
+  padding: 8px 11px; color: var(--ink); font: inherit; font-size: 13px; min-width: 0;
+}
+.csr-new input:first-child { font-family: var(--font-mono); }
+.csr-new button, .csr-add button, .csr-pin button:not(.csr-link) {
+  background: var(--accent); color: #140a04; border: 0; border-radius: var(--r-sm);
+  padding: 8px 16px; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.csr-new button:disabled, .csr-add button:disabled, .csr-pin button:disabled { opacity: .45; cursor: not-allowed; }
+
+.csr-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.csr-table th { text-align: left; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); padding: 0 12px 8px 0; border-bottom: 1px solid var(--bd); }
+.csr-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--bd-subtle); color: var(--ink-2); }
+.csr-table td.num { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+.csr-table code { font-family: var(--font-mono); color: var(--ink); }
+.csr-table tr.shut td { color: var(--ink-4); }
+.csr-shut { font-style: normal; font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); margin-left: 8px; }
+
+/* what the case is missing, which is the part worth reading first */
+.csr-gaps { border: 1px solid var(--bd); border-left: 2px solid var(--accent); border-radius: var(--r-md); padding: 16px 18px; margin-bottom: 26px; background: var(--bg-1); }
+.csr-gaps h2 { margin: 0 0 9px; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+.csr-gaps ul { margin: 0; padding-left: 18px; }
+.csr-gaps li { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin-bottom: 5px; }
+
+.csr-sec { margin-bottom: 30px; }
+.csr-sec > h2 { font-weight: 600; font-size: 17px; margin: 0 0 6px; letter-spacing: -.012em; }
+.csr-lead { color: var(--ink-3); font-size: 13px; line-height: 1.55; margin: 0 0 14px; max-width: 70ch; }
+
+.csr-cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 26px; align-items: start; }
+@media (max-width: 1000px) { .csr-cols { grid-template-columns: 1fr; } }
+
+.csr-add { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 7px; margin-bottom: 16px; }
+@media (max-width: 620px) { .csr-add { grid-template-columns: 1fr 1fr; } }
+
+.csr-ent { border: 1px solid var(--bd-subtle); border-radius: var(--r-md); padding: 13px 15px; margin-bottom: 10px; background: var(--bg-1); }
+.csr-ent-h { display: flex; align-items: baseline; gap: 10px; }
+.csr-ent-h b { font-size: 15px; font-weight: 600; color: var(--ink); }
+.csr-kind { font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
+.csr-ent-h .csr-link { margin-left: auto; }
+.csr-ent-v { display: block; margin-top: 3px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+
+.csr-facts { list-style: none; margin: 10px 0 8px; padding: 0; }
+.csr-facts li { display: flex; align-items: baseline; gap: 9px; padding: 5px 0 5px 9px; border-left: 2px solid var(--bd-subtle); font-size: 13px; flex-wrap: wrap; }
+.csr-facts li.s-critical { border-left-color: var(--accent); }
+.csr-facts li.s-high { border-left-color: var(--confirm); }
+.csr-fl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4); flex: 0 0 auto; }
+.csr-facts code { font-family: var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
+.csr-facts em { font-style: normal; font-size: 11px; color: var(--ink-4); }
+.csr-facts .csr-link { margin-left: auto; }
+
+.csr-pin { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--bd-subtle); }
+.csr-pin-a { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; }
+.csr-read { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--ink-3); font-family: var(--font-mono); }
+
+.csr-side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 1000px) { .csr-side { position: static; } }
+.csr-panel { border: 1px solid var(--bd); border-radius: var(--r-md); padding: 14px 15px; background: var(--bg-1); }
+.csr-panel h3 { margin: 0 0 10px; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+
+.csr-net, .csr-dev, .csr-geo, .csr-when { padding: 7px 0 7px 10px; border-left: 2px solid var(--accent); margin-bottom: 7px; }
+/* weak evidence is shown rather than hidden, and never at the strength of a link */
+.csr-net.weak, .csr-geo.w-hint, .csr-when.undated { border-left-color: var(--bd); }
+.csr-net code, .csr-when code { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+.csr-net span, .csr-dev span, .csr-when span { display: block; font-size: 12px; color: var(--ink-2); }
+.csr-net em, .csr-dev em, .csr-geo em { display: block; font-style: normal; font-size: 11px; line-height: 1.5; color: var(--ink-4); margin-top: 2px; }
+.csr-dev b { font-size: 13px; color: var(--ink); }
+.csr-geo b { font-size: 13px; color: var(--ink); margin-right: 8px; }
+.csr-geo span { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-4); }
+.csr-geo small { display: block; font-size: 11px; line-height: 1.5; color: var(--ink-4); margin-top: 3px; }
+.csr-geoline { margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--ink); }
+.csr-when em { display: block; font-style: normal; font-size: 11px; color: var(--ink-4); }
+
+.csr-test { border: 1px solid var(--bd); border-left: 2px solid var(--ink-3); border-radius: var(--r-md); padding: 13px 15px; background: var(--bg-2); }
+.csr-test.broke { border-left-color: var(--accent); }
+.csr-test h3 { margin: 0 0 7px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.csr-test p { margin: 0 0 9px; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
