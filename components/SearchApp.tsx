@@ -162,7 +162,23 @@ export default function SearchApp({ initialAccount }: { initialAccount?: Initial
     return () => clearTimeout(t);
   }, [subject, limit]);
 
-  const run = useCallback(async (fresh = false) => {
+  /**
+   * Run the search. `fresh` skips the kept answer and pays for a new one.
+   *
+   * IT TAKES unknown AND COMPARES AGAINST true, WHICH IS NOT FUSSINESS. This is wired
+   * to a button as onClick={run}, so React hands it the click event as the first
+   * argument. When the parameter was `fresh = false`, that event became the flag, went
+   * into JSON.stringify with the rest of the body, and threw on the circular structure
+   * a DOM node always has. The promise rejected, nothing caught it, and the loading
+   * screen stayed on its last animation line forever.
+   *
+   * It broke every search for every account the moment the cache was added, because
+   * the parameter was new and the call site was not. A handler that changes behaviour
+   * depending on how it was attached is a trap, so this one cannot: only a literal true
+   * means anything.
+   */
+  const run = useCallback(async (fresh?: unknown) => {
+    const forceFresh = fresh === true;
     if (!basis) return;
     setBusy(true); setErr(""); setStep("loading");
     const started = Date.now();
@@ -173,7 +189,7 @@ export default function SearchApp({ initialAccount }: { initialAccount?: Initial
     // and far less than forever.
     const res = await fetch("/api/search", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ subject: subject.trim(), legalBasis: basis, caseRef: caseRef.trim() || undefined, exact: !permutations, limit, fresh }),
+      body: JSON.stringify({ subject: subject.trim(), legalBasis: basis, caseRef: caseRef.trim() || undefined, exact: !permutations, limit, fresh: forceFresh }),
       signal: AbortSignal.timeout(60_000),
     }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) }))
       .catch((e) => ({ status: 0, data: { error: e?.name === "TimeoutError"
