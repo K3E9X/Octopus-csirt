@@ -166,10 +166,19 @@ export default function SearchApp({ initialAccount }: { initialAccount?: Initial
     if (!basis) return;
     setBusy(true); setErr(""); setStep("loading");
     const started = Date.now();
+    // A SEARCH THAT NEVER COMES BACK MUST NOT MEAN A SCREEN THAT NEVER CHANGES. The
+    // server bounds its own work, but a request can still be lost between here and
+    // there, and without a deadline the loading screen sat on its last animation line
+    // indefinitely with nothing to say. Sixty seconds is far more than any search takes
+    // and far less than forever.
     const res = await fetch("/api/search", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ subject: subject.trim(), legalBasis: basis, caseRef: caseRef.trim() || undefined, exact: !permutations, limit, fresh }),
-    }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, data: {} as any }));
+      signal: AbortSignal.timeout(60_000),
+    }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) }))
+      .catch((e) => ({ status: 0, data: { error: e?.name === "TimeoutError"
+        ? "The search did not come back within a minute. Nothing was charged for a query that did not complete; check /api/health on the deployment, and whether it can reach the index."
+        : "The request could not be sent. Check the connection." } as any }));
 
     // let the scan animation breathe for a beat so it never flickers
     await new Promise((r) => setTimeout(r, Math.max(0, 1100 - (Date.now() - started))));
@@ -195,7 +204,7 @@ export default function SearchApp({ initialAccount }: { initialAccount?: Initial
     }
     setBusy(false);
     setStep("basis");
-    setErr(res.data.error || "The search could not run.");
+    setErr(res.data.error || `The search could not run${res.status ? ` (${res.status})` : ""}.`);
   }, [subject, basis, caseRef, permutations, limit]);
 
   const reset = useCallback(() => {
@@ -221,7 +230,7 @@ export default function SearchApp({ initialAccount }: { initialAccount?: Initial
         {step === "basis" && (
           <Basis {...{ subject, quote, basis, setBasis, caseRef, setCaseRef, permutations, setPermutations, limit, setLimit, run, busy, err, reset }} />
         )}
-        {step === "loading" && <Scanning subject={subject} />}
+        {step === "loading" && <Scanning subject={subject} onCancel={() => { setBusy(false); setStep("basis"); setErr("Stopped waiting. If the search did complete it was charged; the balance in the header is the truth."); }} />}
         {step === "report" && cached && <CachedBar c={cached} onFresh={() => run(true)} busy={busy} />}
         {step === "report" && domain && <DomainView d={domain} reset={reset} caseRef={caseRef} />}
 
@@ -357,15 +366,39 @@ function Basis({ subject, quote, basis, setBasis, caseRef, setCaseRef, permutati
 
 // ---- step: loading (the deep scan) ----------------------------------------------------
 
-function Scanning({ subject }: { subject: string }) {
+/**
+ * The waiting screen, and the thing it used to get wrong.
+ *
+ * The four lines are an animation, not progress: they advance on a timer and stop on
+ * the last one. So a request that never came back left "Ranking by severity" on screen
+ * indefinitely, which reads as the tool being stuck at that step rather than as waiting,
+ * and was reported as exactly that.
+ *
+ * It counts now. Past five seconds the screen says how long it has been waiting, and
+ * past twenty it says plainly that this is longer than usual and offers a way out. A
+ * spinner with no elapsed time is a spinner that cannot be told apart from a hang.
+ */
+function Scanning({ subject, onCancel }: { subject: string; onCancel?: () => void }) {
   const lines = ["Querying breach index…", "Matching records…", "Classifying exposure…", "Ranking by severity…"];
   const [i, setI] = useState(0);
-  useEffect(() => { const t = setInterval(() => setI((n) => Math.min(n + 1, lines.length - 1)), 280); return () => clearInterval(t); }, []);
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => Math.min(n + 1, lines.length - 1)), 280);
+    const s = setInterval(() => setSecs((n) => n + 1), 1000);
+    return () => { clearInterval(t); clearInterval(s); };
+  }, []);
   return (
     <section className="lk2-scan">
       <div className="lk2-sonar"><span /><span /><span /><OctoMark size={48} glow /></div>
       <div className="lk2-scan-subject">{subject}</div>
-      <div className="lk2-scan-line">{lines[i]}</div>
+      <div className="lk2-scan-line">{lines[i]}{secs >= 5 ? ` · ${secs}s` : ""}</div>
+      {secs >= 20 && (
+        <p className="lk2-scan-slow">
+          Longer than usual. The index can be slow on a deep sweep; if nothing comes back
+          within a minute the search is abandoned and nothing is charged for it.
+          {onCancel && <> <button className="lk2-link" onClick={onCancel}>Stop waiting</button></>}
+        </p>
+      )}
     </section>
   );
 }

@@ -47,6 +47,17 @@ function tcpDriver(url: string): SqlFn {
       max: Number(process.env.PGPOOL_MAX) || 5,
       idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 8_000,
+      // A QUERY THAT NEVER RETURNS IS AN INTERFACE THAT NEVER RETURNS. Acquiring a
+      // connection was already bounded; running a statement was not, so a lock held by
+      // something else, a database under load, or a half-open connection left a request
+      // waiting with nothing to time it out. The browser then sat on the loading screen
+      // forever with no error to show, which is what gets reported as "it blocks".
+      //
+      // Fifteen seconds is far longer than anything here legitimately takes: the
+      // heaviest statement is a single-row upsert or a bounded SELECT.
+      statement_timeout: Number(process.env.PGSTATEMENT_TIMEOUT_MS) || 15_000,
+      // and a transaction nobody is driving must not hold its row locks indefinitely
+      idle_in_transaction_session_timeout: 20_000,
       // A local or in-compose Postgres has no certificate worth verifying; a managed one
       // reached over the internet does. Opt in explicitly rather than disabling globally.
       ssl: /\bsslmode=require\b/i.test(url) ? { rejectUnauthorized: false } : undefined,
