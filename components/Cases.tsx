@@ -202,6 +202,11 @@ function CaseBoard({ data, act, back, busy }: {
         <span className="csr-exports">
           <a href={`/api/case?id=${encodeURIComponent(file.id)}&format=csv`}>export CSV</a>
           <a href={`/api/case?id=${encodeURIComponent(file.id)}&format=json`}>export JSON</a>
+          <button className="csr-link csr-del" onClick={async () => {
+            if (!window.confirm(`Remove ${file.ref}?\n\nIts selectors and every pinned fact go with it. The queries filed under the reference STAY in the audit trail.`)) return;
+            const d = await act({ action: "delete-case" });
+            if (d) back();
+          }}>remove case</button>
         </span>
       </div>
 

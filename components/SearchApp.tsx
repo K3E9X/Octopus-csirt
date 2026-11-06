@@ -134,6 +134,7 @@ export default function SearchApp() {
   const [err, setErr] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [domain, setDomain] = useState<DomainReport | null>(null);
+  const [cached, setCached] = useState<{ at: number; expiresAt: number; by: string; key: string } | null>(null);
   const [headline, setHeadline] = useState("");
   const [view, setView] = useState<View>("identity");
   // Each hop is kept, so an investigation can be walked back rather than only forward.
@@ -157,13 +158,13 @@ export default function SearchApp() {
     return () => clearTimeout(t);
   }, [subject, limit]);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (fresh = false) => {
     if (!basis) return;
     setBusy(true); setErr(""); setStep("loading");
     const started = Date.now();
     const res = await fetch("/api/search", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ subject: subject.trim(), legalBasis: basis, caseRef: caseRef.trim() || undefined, exact: !permutations, limit }),
+      body: JSON.stringify({ subject: subject.trim(), legalBasis: basis, caseRef: caseRef.trim() || undefined, exact: !permutations, limit, fresh }),
     }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, data: {} as any }));
 
     // let the scan animation breathe for a beat so it never flickers
@@ -172,14 +173,14 @@ export default function SearchApp() {
     // A domain answers with a roster, not a subject. Branching here rather than
     // pretending it is a report keeps the two shapes from leaking into each other.
     if (res.status === 200 && res.data.domain) {
-      setDomain(res.data.domain); setReport(null);
+      setDomain(res.data.domain); setReport(null); setCached(res.data.cached || null);
       setStep("report"); setBusy(false);
       if (typeof res.data.balance === "number") setAccount((a) => (a ? { ...a, balance: res.data.balance } : a));
       return;
     }
 
     if (res.status === 200 && res.data.report) {
-      setDomain(null);
+      setDomain(null); setCached(res.data.cached || null);
       const rep: Report = res.data.report;
       setReport(rep); setHeadline(res.data.headline || "");
       setView(rep.verdict === "clear" ? (rep.others.length ? "category" : "identity") : "identity");
@@ -194,7 +195,7 @@ export default function SearchApp() {
   }, [subject, basis, caseRef, permutations, limit]);
 
   const reset = useCallback(() => {
-    setStep("enter"); setReport(null); setDomain(null); setErr(""); setBasis(""); setCaseRef(""); setPermutations(false);
+    setStep("enter"); setReport(null); setDomain(null); setCached(null); setErr(""); setBasis(""); setCaseRef(""); setPermutations(false);
   }, []);
 
   return (
@@ -217,6 +218,7 @@ export default function SearchApp() {
           <Basis {...{ subject, quote, basis, setBasis, caseRef, setCaseRef, permutations, setPermutations, limit, setLimit, run, busy, err, reset }} />
         )}
         {step === "loading" && <Scanning subject={subject} />}
+        {step === "report" && cached && <CachedBar c={cached} onFresh={() => run(true)} busy={busy} />}
         {step === "report" && domain && <DomainView d={domain} reset={reset} caseRef={caseRef} />}
 
         {step === "report" && report && (
@@ -1348,5 +1350,28 @@ function Account({ a, caseRef }: { a: DomainAccount; caseRef?: string }) {
         </button>
       )}
     </li>
+  );
+}
+
+
+/**
+ * This answer was already paid for.
+ *
+ * Said plainly, with its age, because a report that looks live and is a day old is a
+ * report somebody will act on as though it were live. Breach data is historic, so a day
+ * changes almost nothing, and "almost" is why the button is here: a fresh run costs a
+ * credit and goes to the source.
+ */
+function CachedBar({ c, onFresh, busy }: { c: { at: number; expiresAt: number; by: string }; onFresh: () => void; busy: boolean }) {
+  const hours = Math.max(0, Math.round((Date.now() - c.at) / 3600000));
+  const left = Math.max(0, Math.round((c.expiresAt - Date.now()) / 3600000));
+  return (
+    <div className="lk2-cached">
+      <span>
+        Kept answer, {hours === 0 ? "less than an hour" : `${hours} hour${hours === 1 ? "" : "s"}`} old,
+        first fetched by {c.by}. <b>No credit was spent.</b> It is dropped in {left} hour{left === 1 ? "" : "s"}.
+      </span>
+      <button onClick={onFresh} disabled={busy}>Search again for a credit</button>
+    </div>
   );
 }

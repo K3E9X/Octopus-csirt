@@ -228,3 +228,21 @@ export async function setCaseStatus(cid: string, status: "open" | "closed", note
           note = COALESCE(${note ?? null}, note) WHERE id = ${cid}`;
   return true;
 }
+
+/**
+ * Removing a case.
+ *
+ * Everything in it goes: the selectors and the facts somebody pinned to them. That is
+ * the right behaviour and it is not the same as removing the record that the work
+ * happened. The audit trail keeps every query that was filed under the reference,
+ * carrying who ran it and why, and nothing here touches that. A case is a working
+ * document; the trail is the record.
+ */
+export async function deleteCase(cid: string): Promise<{ ok: boolean; facts: number; entities: number }> {
+  const q = sql();
+  if (!q || !(await init())) return { ok: false, facts: 0, entities: 0 };
+  const f = await q`DELETE FROM octopus_case_facts WHERE case_id = ${cid} RETURNING id`;
+  const e = await q`DELETE FROM octopus_case_entities WHERE case_id = ${cid} RETURNING id`;
+  const c = await q`DELETE FROM octopus_cases WHERE id = ${cid} RETURNING id`;
+  return { ok: (c as any[]).length > 0, facts: (f as any[]).length, entities: (e as any[]).length };
+}

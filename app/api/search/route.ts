@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readClientConfig } from "@/lib/reqconfig";
 import { currentUser, authEnabled } from "@/lib/session-server";
 import { isAtLeast } from "@/lib/auth";
+import { cacheKey, readCache, writeCache, cacheHours } from "@/lib/searchcache";
 import { leakOsint, estimateCost, complexityOf, tokenize, isBillableWord, formatCost } from "@/lib/leakosint";
 import { buildReport, headline } from "@/lib/report";
 import { buildSubject } from "@/lib/subject";
@@ -228,7 +229,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "That is not a selector anything can be searched for." }, { status: 400 });
   }
 
-  if (creditsEnabled && user) {
+  // ---- an answer we already have ---------------------------------------------------
+  // Looked up BEFORE the charge, because the whole point is not to pay twice, and
+  // AFTER the selector has been parsed, because the key is the canonical question
+  // rather than the words somebody typed. `fresh: true` from the caller skips it: a
+  // cache nobody can bypass is a trap the first time the index gains a database.
+  const ckey = cacheKey(subject.query, limit, region, body?.exact === true);
+  const hit = body?.fresh === true ? null : await readCache(ckey).catch(() => null);
+
+  if (creditsEnabled && user && !hit) {
     const charge = await debit(user.id, price, `search: ${subject.canonical.slice(0, 48)}`);
     if (!charge.ok) {
       return NextResponse.json({
@@ -251,7 +260,7 @@ export async function POST(req: NextRequest) {
     selector: subject.canonical,
     legalBasis,
     caseId: String(body?.caseRef || "") || undefined,
-    note: `kind=${subject.kind} limit=${limit} query=${subject.query}`,
+    note: `kind=${subject.kind} limit=${limit} query=${subject.query}${hit ? " cached" : ""}`,
   }).catch(() => {});
 
   // Refunding is not idempotent and the ledger carries no "already refunded" marker, so
@@ -277,6 +286,23 @@ export async function POST(req: NextRequest) {
     user && !refunded
       ? { refunded: false, note: "You were charged for this query and the refund did not go through. Contact the operator with the time of this request." }
       : { refunded: true };
+
+  // A hit never reaches the source and never touches the balance. It still produced an
+  // audit entry above, because a cached answer is still somebody looking at somebody.
+  if (hit) {
+    const dom0 = looksLikeDomainQuery(raw) ? domainOf(raw) : null;
+    const cachedInfo = { at: hit.at, expiresAt: hit.expiresAt, by: hit.by, key: ckey };
+    const common = {
+      cached: cachedInfo,
+      charged: 0,
+      query: { sent: subject.query, limit, rowsReturned: hit.rowCount, databases: hit.databases.length },
+      deployment: { metered: creditsEnabled && !!user, logged: auditEnabled, operator: user?.email || null },
+      balance: user ? balanceCredits(await balanceOf(user.id).catch(() => NaN)) : undefined,
+    };
+    if (dom0) return NextResponse.json({ domain: buildDomainReport(dom0, hit.databases), ...common });
+    const cachedReport = buildReport(subject, hit.databases, region);
+    return NextResponse.json({ report: cachedReport, headline: headline(cachedReport), ...common });
+  }
 
   try {
     const res = await leakOsint({
@@ -334,6 +360,12 @@ export async function POST(req: NextRequest) {
     // in it: a confident, detailed, empty answer to the most obvious question a CSIRT
     // asks about its own estate. It gets a roster instead, and two people at one
     // employer stay two people.
+    // Kept for next time. Fire and forget: a cache that can fail a search is worse
+    // than no cache, and the search has already succeeded by this point.
+    if (cacheHours() > 0) {
+      writeCache(ckey, subject.canonical, subject.query, limit, res.databases, res.rowCount, user?.email || "single-operator").catch(() => {});
+    }
+
     const dom = looksLikeDomainQuery(raw) ? domainOf(raw) : null;
     if (dom) {
       const domainReport = buildDomainReport(dom, res.databases);

@@ -172,6 +172,20 @@ report says so.
 A hash is not a password. Telling a responder they have plaintext when they have bcrypt
 wastes the hour that mattered.
 
+## Kept answers
+
+A search is kept for `OCTOPUS_CACHE_HOURS` (24 by default, 0 turns it off) so asking the
+same question twice costs one credit. Breach data is historic: nothing appeared in the
+index between eleven and two, and paying again buys nothing.
+
+This is the one place the deployment stores breach data, which everything else here
+refuses to do, so it is bounded in every direction that matters. It expires. Every kept
+answer is listed in `/admin` with a button to drop it. A report built from one says so,
+with its age and a button to pay for a fresh one, because a cache nobody can bypass is a
+trap the first time the index gains a database. And **a cache hit still writes the audit
+entry**: a cached answer is still somebody looking at somebody, and "who looked at whom"
+is the record that must not develop holes.
+
 ## Cases
 
 A hunt does not start as an identity. It starts as a stealer log, an insider's corporate
@@ -241,6 +255,14 @@ docs/              the API contract
 Internal CSIRT use: incident response, insider investigation, threat intelligence. Processing personal data means GDPR applies, legal
 basis, minimisation, limited retention, audit, and data-subject rights. The declared basis and the query log exist so those obligations can
 actually be met rather than asserted.
+
+**Retention.** The audit trail holds every selector anybody typed. Keeping that forever
+is not a lawful answer and neither is deleting whatever is inconvenient, so `/admin` can
+remove everything older than a cutoff, **from the beginning only**, and the purge writes
+itself into the trail it just shortened. A row cannot be taken out of the middle: that is
+the one thing a hash-chained log exists to prevent, and the only reason to want it is to
+remove a particular query somebody ran. The chain keeps verifying across a purge because
+the hash of the last removed row is recorded as the new floor.
 
 **Cases hold personal data.** Pinned facts are breach data about identifiable people,
 kept on our infrastructure for as long as the case exists. That is a processing activity

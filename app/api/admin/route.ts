@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { listUsers, setRole, adminGrantCap, outranks, deleteUser, revokeSessions, getUser, type Role } from "@/lib/auth";
+import { listCache, dropCache, dropCacheFor, cacheHours, cacheEnabled } from "@/lib/searchcache";
+import { purgeAuditBefore } from "@/lib/audit";
 import { requireAdmin, requireOwner, authEnabled } from "@/lib/session-server";
 import { listAudit, verifyAuditChain, auditEnabled } from "@/lib/audit";
 import { grant, balanceOf, ledgerOf, creditsToMicro, balanceCredits, creditsEnabled, trialNote } from "@/lib/credits";
@@ -35,6 +37,7 @@ export async function GET() {
     : users;
   return NextResponse.json({
     configured: true, metered: creditsEnabled, users: withBalance, activity, chain,
+    cache: cacheEnabled ? await listCache(60) : [], cacheHours: cacheHours(),
     source, storable: storedKeyAvailable, database, trial: creditsEnabled ? trialNote() : "",
     // what THIS caller is allowed to do, so the screen offers nothing it cannot deliver
     me: { id: caller.id, role: caller.role },
@@ -53,6 +56,31 @@ export async function POST(req: NextRequest) {
   // A leaver, a laptop left on a train, a password somebody else has seen: the account
   // has to stop working NOW, and its queries have to stay in the audit trail. Those are
   // two different actions and they are kept apart.
+
+  // ---- the kept answers --------------------------------------------------------
+  // Visible and emptiable, because a store of other people's breach data that nobody
+  // can see the contents of is the thing this product spends its time arguing against.
+  // Retention on the trail. OWNER ONLY, and only from the beginning: removing a row
+  // from the middle is the one thing a hash-chained log exists to make impossible, and
+  // the only reason to want it is to remove a specific query somebody ran.
+  if (body?.action === "audit-purge") {
+    if (!(await requireOwner())) return NextResponse.json({ error: "owner only" }, { status: 403 });
+    const days = Math.max(1, Math.floor(Number(body?.days) || 0));
+    if (!days) return NextResponse.json({ error: "how many days should be kept?" }, { status: 400 });
+    const r = await purgeAuditBefore(Date.now() - days * 86400000, admin.email);
+    if (!r.ok) return NextResponse.json({ error: r.error || "could not purge" }, { status: 500 });
+    return NextResponse.json({
+      ok: true, removed: r.removed,
+      note: `${r.removed} entr${r.removed === 1 ? "y" : "ies"} older than ${days} days removed. The purge itself is in the trail, and the chain verifies from the cut forward.`,
+    });
+  }
+
+  if (body?.action === "cache-drop") {
+    const n = body?.key ? await dropCache(String(body.key))
+      : body?.selector ? await dropCacheFor(String(body.selector))
+      : await dropCache();
+    return NextResponse.json({ ok: true, dropped: n, note: `${n} kept answer${n === 1 ? "" : "s"} deleted. The audit trail is untouched.` });
+  }
 
   if (body?.action === "revoke") {
     const target = await getUser(id);

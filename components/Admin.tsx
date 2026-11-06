@@ -15,6 +15,8 @@ interface Source { source: "stored" | "environment" | "none"; tail?: string; len
 
 export default function Admin({ me, disabledReason }: { me?: { id: string; email: string }; disabledReason?: string }) {
   const [users, setUsers] = useState<U[]>([]);
+  const [cache, setCache] = useState<any[]>([]);
+  const [cacheHours, setCacheHours] = useState(0);
   const [activity, setActivity] = useState<A[]>([]);
   const [chain, setChain] = useState<{ intact: boolean; checked: number; brokenAt?: number } | null>(null);
   const [metered, setMetered] = useState(false);
@@ -35,6 +37,8 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
     setTrial(d.trial || "");
     setRole(d.me?.role || "admin");
     setCap(d.grantCap ?? 500);
+    setCache(d.cache || []);
+    setCacheHours(d.cacheHours ?? 0);
   }
   useEffect(() => { if (!disabledReason) load(); }, [disabledReason]);
 
@@ -97,6 +101,8 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
       {msg && <div className="adm-msg">{msg}</div>}
 
       <SourceKey source={source} storable={storable} onDone={(m) => { setMsg(m); setTimeout(() => setMsg(""), 6000); load(); }} />
+
+      <KeptAnswers rows={cache} hours={cacheHours} onDone={(m) => { setMsg(m); setTimeout(() => setMsg(""), 6000); load(); }} />
 
       <section>
         <h2>Accounts <em>{users.length}</em></h2>
@@ -326,5 +332,75 @@ function Grant({ onGrant, disabled, cap }: { onGrant: (credits: number) => void;
       <button className="adm-grant" onClick={() => setOpen(false)}>×</button>
       {cap && <em className="adm-cap">max {cap}</em>}
     </span>
+  );
+}
+
+
+/**
+ * The answers this deployment is keeping, and the trail's retention.
+ *
+ * Both are here for the same reason: they are the two places where this tool holds data
+ * about people, and a store nobody can see the contents of is the thing the rest of the
+ * product spends its time arguing against.
+ */
+function KeptAnswers({ rows, hours, onDone }: { rows: any[]; hours: number; onDone: (m: string) => void }) {
+  const [days, setDays] = useState(365);
+  const post = async (body: any) => {
+    const r = await fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    onDone(d?.note || d?.error || "done");
+  };
+  const age = (t: number) => {
+    const h = Math.round((Date.now() - t) / 3600000);
+    return h < 1 ? "just now" : `${h}h ago`;
+  };
+  return (
+    <section>
+      <h2>Kept answers <em>{rows.length}</em></h2>
+      <p className="adm-note">
+        {hours === 0
+          ? "Caching is off. Every search goes to the source and costs a credit, including one somebody ran an hour ago."
+          : `A search is kept for ${hours} hours so asking twice costs once. These are breach records held on this deployment: that is the trade, and it is why they are listed here rather than only counted.`}
+      </p>
+      {rows.length > 0 && (
+        <>
+          <table className="datatable">
+            <thead><tr><th>selector</th><th>depth</th><th>rows</th><th>fetched</th><th>by</th><th /></tr></thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr key={c.key}>
+                  <td className="t-handle">{c.selector}</td>
+                  <td>{c.lim}</td>
+                  <td>{c.rows}</td>
+                  <td>{age(c.at)}</td>
+                  <td>{c.by}</td>
+                  <td><button className="adm-cut" onClick={() => post({ action: "cache-drop", key: c.key })}>drop</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button className="adm-cut danger" onClick={() => {
+            if (window.confirm("Delete every kept answer? The next search for each will go to the source and cost a credit.")) post({ action: "cache-drop" });
+          }}>drop all</button>
+        </>
+      )}
+
+      <h2 style={{ marginTop: 28 }}>Audit retention</h2>
+      <p className="adm-note">
+        The trail holds every selector anybody typed, which is personal data. Keeping it
+        forever is not a lawful answer and neither is deleting whatever is inconvenient,
+        so this removes everything older than a cutoff, from the beginning only, and
+        writes the purge into the trail it just shortened. A row cannot be taken out of
+        the middle: that is the one thing a hash-chained log exists to prevent, and the
+        only reason to want it is to remove a particular query somebody ran.
+      </p>
+      <div className="adm-src-form">
+        <input type="number" min={1} value={days} onChange={(e) => setDays(Number(e.target.value))} style={{ maxWidth: 120 }} />
+        <span className="adm-cap">days kept</span>
+        <button className="adm-cut danger" onClick={() => {
+          if (window.confirm(`Remove every entry older than ${days} days? This cannot be undone, and the purge is itself recorded.`)) post({ action: "audit-purge", days });
+        }}>purge older entries</button>
+      </div>
+    </section>
   );
 }

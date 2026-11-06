@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser, authEnabled } from "@/lib/session-server";
 import { isAtLeast } from "@/lib/auth";
 import {
-  casesEnabled, listCaseFiles, openCase, readCase, caseByRef, entityFor,
+  casesEnabled, listCaseFiles, openCase, readCase, caseByRef, entityFor, deleteCase,
   addEntity, pinFact, unpinFact, removeEntity, setCaseStatus,
 } from "@/lib/casestore";
 import { buildBoard, testFact, type EntityKind } from "@/lib/casework";
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   if (!cid) return NextResponse.json({ error: "which case?" }, { status: 400 });
   const found = await readCase(cid);
   if (!found) return NextResponse.json({ error: "No such case." }, { status: 404 });
-  if (found.file.status === "closed" && action !== "reopen") {
+  if (found.file.status === "closed" && action !== "reopen" && action !== "delete-case") {
     return NextResponse.json({ error: "That case is closed. Reopen it first." }, { status: 409 });
   }
 
@@ -172,6 +172,18 @@ export async function POST(req: NextRequest) {
       // the counterfactual: what the case looks like if one pinned fact is wrong
       const r = testFact(found.entities, found.facts, String(body?.value || ""), String(body?.category || "other"));
       return NextResponse.json({ ok: true, ...r });
+    }
+    case "delete-case": {
+      // Whoever opened it, or an administrator. A case is shared work, and shared work
+      // that anybody can delete is work nobody will put in it.
+      if (found.file.openedBy !== user.email && !isAtLeast(user.role, "admin")) {
+        return NextResponse.json({ error: "Only whoever opened this case, or an administrator, can remove it." }, { status: 403 });
+      }
+      const r = await deleteCase(cid);
+      return NextResponse.json({
+        ok: r.ok,
+        note: `Case removed with ${r.entities} selector${r.entities === 1 ? "" : "s"} and ${r.facts} pinned fact${r.facts === 1 ? "" : "s"}. The queries filed under it stay in the audit trail.`,
+      });
     }
     case "close":
     case "reopen": {

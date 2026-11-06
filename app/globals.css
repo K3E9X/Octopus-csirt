@@ -917,11 +917,73 @@ body::after {
 /* In print every view is shown, so the PDF is the whole report whichever tab was
    open, and the other-people section is expanded, because a reader of the paper
    copy cannot click to find out it existed. */
+/* ======================================================================
+   PRINT, which is also what "export to PDF" means in a browser.
+
+   THE PAGES CAME OUT BLANK and the reason is worth keeping written down,
+   because it looks like nothing is rendering and it is the opposite.
+   Browsers do not print background colours by default. This interface is
+   pale text on a dark ground, so the ground was dropped and the text was
+   kept: near-white on white, a full report that is entirely there and
+   entirely invisible.
+
+   Fixed by re-pointing the TOKENS rather than by listing selectors. Every
+   component reads these variables, so twelve lines re-skin the whole
+   application for paper and nothing has to be kept in step with it. The
+   alternative, naming each class that needs a colour, is a list that goes
+   stale the first time somebody adds a panel.
+   ====================================================================== */
 @media print {
-  .lk2-tabs, .lk2-actions, .lk2-top { display: none !important; }
+  .lk2, .csr, .dsh, .ax, :root {
+    --void: #fff; --void-2: #fff;
+    --bg-0: #fff; --bg-1: #fff; --bg-2: #fafafa; --bg-3: #f4f4f4;
+    --ink: #111; --ink-2: #333; --ink-3: #555; --ink-4: #666;
+    --bd: #ccc; --bd-strong: #999; --bd-subtle: #ddd;
+    --ctl: #333; --ctl-bd: #bbb; --ctl-bg: #f4f4f4;
+    --panel: #fff;
+    /* the accent stays, because severity is information and a report that
+       prints every finding in the same grey has thrown it away */
+    --accent: #B4440C; --accent-dim: #f3e2d8; --accent-tint: #faf0ea;
+    --glow-warm: transparent; --glow-cool: transparent;
+    --shadow-float: none; --inset: none;
+  }
+  html, body { background: #fff !important; }
+  body::after, body::before { display: none !important; }
+
+  /* controls, navigation and anything that only makes sense when clickable */
+  .lk2-top, .lk2-tabs, .lk2-actions, .lk2-link, .lk2-print, .lk2-pin,
+  .lk2-casebar, .deepfield, .dsh-start, .csr-exports, .csr-add, .csr-pin,
+  .lk2-reveal-btn span { display: none !important; }
+
+  /* A masked value is not printed as dots. The person holding the paper
+     already has the report; hiding it on the page only makes the paper
+     useless while leaving the data exactly where it was. */
+  .lk2-reveal-btn code { letter-spacing: 0 !important; color: #111 !important; }
+
+  /* the sections that must not be cut in half by a page break */
+  .lk2-verdict, .lk2-cat, .lk2-src, .lk2-critical, .lk2-tl, .lk2-facet,
+  .csr-ent, .csr-panel, .dmn-acc {
+    break-inside: avoid; box-shadow: none !important;
+    animation: none !important; opacity: 1 !important; transform: none !important;
+  }
   .lk2-off { display: block !important; }
-  .lk2-print-h { display: block !important; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #666; margin: 24px 0 10px; }
+  .lk2-print-h {
+    display: block !important; font-weight: 600; font-size: 17px; color: #111;
+    margin: 24px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 6px;
+  }
   .lk2-others-grid { display: flex !important; }
+  .lk2-report, .csr-main, .dsh-main { max-width: 100% !important; }
+  /* the orbit is a canvas-free SVG and prints, but only if it is not a
+     breakout that runs off the paper */
+  .lk2-orbit { width: 100% !important; margin-left: 0 !important; transform: none !important; grid-template-columns: 1fr !important; }
+  /* On screen the graph is given most of the window. On paper that reserved a whole
+     page for a diagram with four circles on it, and an empty page in the middle of a
+     report reads as something that failed to render. */
+  .lk2-orbit-svg { min-height: 0 !important; max-height: 420px; border-color: #ddd !important; }
+  .lk2-orbit-side { position: static !important; }
+  .lk2-node-c { fill: #fff !important; }
+  .lk2-node-n, .lk2-node-l, .lk2-hub-l { fill: #111 !important; }
+  a[href]::after { content: "" !important; }
 }
 
 /* ---- admin: the source token ---- */
@@ -1496,3 +1558,18 @@ body::after {
 .adm-cut:hover:not(:disabled) { border-color: var(--ink-2); color: var(--ink); }
 .adm-cut.danger:hover:not(:disabled) { border-color: var(--sev-crit, var(--accent)); color: var(--accent); }
 .adm-cut:disabled { opacity: .3; cursor: not-allowed; }
+
+/* an answer that was already paid for, and how old it is */
+.lk2-cached {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border: 1px solid var(--bd); border-left: 2px solid var(--accent); border-radius: var(--r-sm);
+  padding: 10px 14px; margin-bottom: 16px; background: var(--bg-1);
+  font-size: 13px; line-height: 1.55; color: var(--ink-2);
+}
+.lk2-cached b { color: var(--ink); font-weight: 600; }
+.lk2-cached button {
+  margin-left: auto; background: transparent; border: 1px solid var(--ctl-bd); border-radius: var(--r-xs);
+  padding: 5px 12px; font: inherit; font-size: 12px; color: var(--ctl); cursor: pointer; white-space: nowrap;
+}
+.lk2-cached button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.csr-del:hover { color: var(--accent); }

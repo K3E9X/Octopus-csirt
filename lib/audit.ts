@@ -209,7 +209,13 @@ export async function verifyAuditChain(limit = 5000): Promise<ChainVerdict> {
     rows.reverse();
     if (!rows.length) return { intact: true, checked: 0, keyed: auditKeyed() };
 
-    let prev: string | null = rows.length > limit ? rows[0].hash : "genesis";
+    // Where the chain begins. "genesis" only if nothing has ever been purged: after a
+    // retention purge the oldest surviving row points at a row that no longer exists,
+    // and a verifier that insisted on genesis would report a deployment as tampered
+    // with for doing exactly what a retention policy asks of it. The floor is the hash
+    // of the last row removed, recorded by the purge itself.
+    const floor = await auditFloor();
+    let prev: string | null = rows.length > limit ? rows[0].hash : (floor || "genesis");
     let n = 0;
     for (const r of rows.slice(rows.length > limit ? 1 : 0)) {
       const expect = rowHash(
@@ -231,4 +237,66 @@ export async function verifyAuditChain(limit = 5000): Promise<ChainVerdict> {
     // for a database that would not answer, which is the one moment it matters most.
     return { intact: false, checked: 0, error: String((e as Error)?.message || e).slice(0, 160) };
   }
+}
+
+
+// ---- retention ----------------------------------------------------------------------
+//
+// THE TRAIL HOLDS PERSONAL DATA: every selector an analyst typed, which is usually a
+// real person's address or name. "Keep everything forever" is not a lawful answer to
+// that, and neither is "delete whatever is inconvenient". What is defensible is a
+// cutoff: everything older than N goes, in one deliberate act, and THE ACT IS ITSELF
+// RECORDED so the gap is part of the record rather than a hole in it.
+//
+// Only from the beginning. Removing a row from the middle is the one thing a
+// hash-chained log exists to make impossible, and it stays impossible: there is no
+// endpoint for it, because the only reason to want one is to remove a specific query
+// somebody ran.
+
+const FLOOR_KEY = "audit_floor";
+
+async function auditFloor(): Promise<string | null> {
+  const q = sql();
+  if (!q) return null;
+  try {
+    const rows = await q`SELECT value FROM octopus_config WHERE name = ${FLOOR_KEY} LIMIT 1`;
+    return (rows as any[])[0]?.value || null;
+  } catch {
+    // the config table belongs to another module and may not exist yet
+    return null;
+  }
+}
+
+export interface PurgeResult { ok: boolean; removed: number; cutoff: number; error?: string }
+
+export async function purgeAuditBefore(cutoff: number, by: string): Promise<PurgeResult> {
+  if (!dbEnabled) return { ok: false, removed: 0, cutoff, error: "no database" };
+  await ensureAuditSchema();
+  const q = sql();
+  if (!q) return { ok: false, removed: 0, cutoff, error: "no database" };
+
+  // The newest row that will go: its hash becomes the chain's new floor, which is what
+  // lets everything after it keep verifying.
+  const edge = (await q`SELECT hash FROM octopus_audit WHERE at < ${cutoff} ORDER BY id DESC LIMIT 1`) as any[];
+  if (!edge.length) return { ok: true, removed: 0, cutoff };
+
+  const gone = (await q`DELETE FROM octopus_audit WHERE at < ${cutoff} RETURNING id`) as any[];
+  await q`CREATE TABLE IF NOT EXISTS octopus_config (
+    name text PRIMARY KEY, value text NOT NULL, set_at bigint, set_by text
+  )`;
+  await q`INSERT INTO octopus_config (name, value, set_at, set_by)
+          VALUES (${FLOOR_KEY}, ${edge[0].hash}, ${Date.now()}, ${by})
+          ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, set_at = EXCLUDED.set_at, set_by = EXCLUDED.set_by`;
+
+  // The purge goes into the trail it just shortened. Without this line the only
+  // evidence that entries existed is their absence, which is no evidence at all.
+  await recordQuery({
+    operator: by,
+    kind: "export",
+    selector: "(audit retention)",
+    legalBasis: "legal-request",
+    note: `purged ${gone.length} entries older than ${new Date(cutoff).toISOString()}`,
+  });
+
+  return { ok: true, removed: gone.length, cutoff };
 }
