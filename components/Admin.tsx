@@ -15,6 +15,7 @@ interface Source { source: "stored" | "environment" | "none"; tail?: string; len
 
 export default function Admin({ me, disabledReason }: { me?: { id: string; email: string }; disabledReason?: string }) {
   const [users, setUsers] = useState<U[]>([]);
+  const [build, setBuild] = useState("");
   const [cache, setCache] = useState<any[]>([]);
   const [cacheHours, setCacheHours] = useState(0);
   const [activity, setActivity] = useState<A[]>([]);
@@ -37,6 +38,7 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
     setTrial(d.trial || "");
     setRole(d.me?.role || "admin");
     setCap(d.grantCap ?? 500);
+    setBuild(d.build || "");
     setCache(d.cache || []);
     setCacheHours(d.cacheHours ?? 0);
   }
@@ -91,8 +93,8 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
     <div className="adm">
       <header className="adm-top">
         <Link className="auth-brand" href="/"><Logo size={26} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
-        <nav className="adm-nav"><Link href="/cases">Cases</Link><Link href="/search">Search</Link></nav>
-        <span className="adm-me">{me?.email}</span>
+        <nav className="adm-nav"><Link href="/">Dashboard</Link><Link href="/cases">Cases</Link><Link href="/search">Search</Link><Link href="/profile">Account</Link></nav>
+        <span className="adm-me">{me?.email}{build && build !== "unknown" ? <em className="adm-build" title="the commit this deployment was built from">build {build}</em> : null}</span>
         <span className="flex" />
         <Link className="ping-btn" href="/search">Open the search</Link>
         <button className="ping-btn" onClick={async () => { await fetch("/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "signout" }) }); location.href = "/"; }}>Sign out</button>

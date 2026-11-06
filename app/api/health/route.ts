@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
   const shallow = {
     ok: true,
     service: "octopus-csirt",
+    // Which commit this is. The one question that cannot be answered from the outside
+    // and is the first one worth asking when a fix does not appear to be there.
+    build: process.env.OCTOPUS_BUILD || "unknown",
     database: dbEnabled ? driverName() : "none",
     audit: auditKeyed() ? "signed" : "unsigned",
     sessions: (process.env.OCTOPUS_SESSION_SECRET || "").length >= 16 ? "configured" : "missing",

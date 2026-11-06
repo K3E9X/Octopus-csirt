@@ -1573,3 +1573,4 @@ body::after {
 }
 .lk2-cached button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .csr-del:hover { color: var(--accent); }
+.adm-build { font-style: normal; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; color: var(--ink-4); margin-left: 12px; border: 1px solid var(--bd-subtle); border-radius: var(--r-xs); padding: 1px 7px; }

@@ -63,9 +63,21 @@ The repository builds to a standalone Next bundle, so the image is small and run
 `node server.js`.
 
 ```sh
-docker build -t ghcr.io/k3e9x/octopus-csirt:v1 .
+docker build --build-arg GIT_SHA=$(git rev-parse --short HEAD) \
+  -t ghcr.io/k3e9x/octopus-csirt:v1 .
 docker push ghcr.io/k3e9x/octopus-csirt:v1
 ```
+
+The build arg stamps the commit into the image. Without it, "I pushed a fix" and "the
+fix is running" are two different claims and nobody on either end can tell them apart:
+
+```sh
+curl -s https://octopus.internal/api/health | grep -o '"build":"[^"]*"'
+```
+
+It is also shown beside your address at the top of `/admin`. If it does not match
+`git rev-parse --short HEAD`, the cluster is running something older and the first thing
+to do is rebuild rather than debug.
 
 Pin a real tag or a digest. `:latest` makes a rollback impossible to describe and a
 rollout impossible to repeat.

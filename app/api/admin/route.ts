@@ -41,6 +41,7 @@ export async function GET() {
     source, storable: storedKeyAvailable, database, trial: creditsEnabled ? trialNote() : "",
     // what THIS caller is allowed to do, so the screen offers nothing it cannot deliver
     me: { id: caller.id, role: caller.role },
+    build: process.env.OCTOPUS_BUILD || "unknown",
     grantCap: adminGrantCap(),
   });
 }

@@ -111,6 +111,11 @@ cat <<EOF
     kubectl --context $CTX -n $NS get pods
     curl -s https://$HOST/api/health?deep=1
 
+  WHICH COMMIT IS RUNNING. Build with --build-arg GIT_SHA=\$(git rev-parse --short HEAD)
+  and the answer carries it, which is the first thing to check when a change does not
+  appear to be there:
+    curl -s https://$HOST/api/health | grep -o '\"build\":\"[^\"]*\"'
+
   The network policy is only enforced if this cluster runs a policy controller. k3s
   bundles one unless it was started with --disable-network-policy. Verify rather than
   assume:

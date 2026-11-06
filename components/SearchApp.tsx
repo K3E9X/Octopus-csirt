@@ -116,7 +116,9 @@ const IconScale = () => (
   </svg>
 );
 
-export default function SearchApp() {
+export interface InitialAccount { authed: boolean; email?: string; role?: string; balance?: number; metered: boolean }
+
+export default function SearchApp({ initialAccount }: { initialAccount?: InitialAccount }) {
   const [step, setStep] = useState<Step>("enter");
   const [subject, setSubject] = useState("");
   const [basis, setBasis] = useState("");
@@ -139,7 +141,9 @@ export default function SearchApp() {
   const [view, setView] = useState<View>("identity");
   // Each hop is kept, so an investigation can be walked back rather than only forward.
   const [trail, setTrail] = useState<{ label: string; report: Report; headline: string }[]>([]);
-  const [account, setAccount] = useState<{ authed: boolean; email?: string; role?: string; balance?: number; metered: boolean } | null>(null);
+  // Seeded from the server, so the header is right on the first paint rather than
+  // after a round trip. The refresh below still runs, because a balance moves.
+  const [account, setAccount] = useState<InitialAccount | null>(initialAccount ?? null);
 
   useEffect(() => {
     fetch("/api/auth").then((r) => r.json()).then((d) =>

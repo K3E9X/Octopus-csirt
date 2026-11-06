@@ -31,12 +31,21 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
+# The commit this image was built from, so a running deployment can say what it is.
+# Without it, "I pushed a fix" and "the fix is running" are two different claims and
+# nobody on either end can tell them apart.
+#
+#   docker build --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t ... .
+ARG GIT_SHA=unknown
+
 # ---- run ----
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ARG GIT_SHA
+ENV OCTOPUS_BUILD=$GIT_SHA
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 # standalone output bundles only what's needed to run
 COPY --from=build /app/public ./public

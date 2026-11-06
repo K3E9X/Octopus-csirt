@@ -129,6 +129,8 @@ export default function Profile() {
 }
 
 function Shell({ children, me, onSignOut }: { children: React.ReactNode; me?: Me; onSignOut: () => void }) {
+  // Until the account has loaded we know nothing, and a nav that guesses is a nav
+  // that offers a link it will then refuse.
   const admin = me?.role === "owner" || me?.role === "admin";
   return (
     <div className="lk2">
@@ -136,6 +138,7 @@ function Shell({ children, me, onSignOut }: { children: React.ReactNode; me?: Me
         <Link className="lk2-brand" href="/"><OctoMark size={30} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
         <nav>
           <Link href="/">Dashboard</Link>
+          <Link href="/search">Search</Link>
           <Link href="/cases">Cases</Link>
           {admin && <Link href="/admin">Admin</Link>}
           <button className="lk2-link" onClick={onSignOut}>Sign out</button>
