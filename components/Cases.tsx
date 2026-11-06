@@ -42,6 +42,8 @@ interface Loaded {
 }
 
 export default function Cases({ initialId }: { initialId?: string }) {
+  const [me, setMe] = useState<{ email: string; role: string } | null>(null);
+  useEffect(() => { fetch("/api/dashboard").then((r) => r.json()).then((d) => setMe(d?.me || null)).catch(() => {}); }, []);
   const [list, setList] = useState<(CaseFile & { entities: number; facts: number })[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [note, setNote] = useState("");
@@ -85,9 +87,11 @@ export default function Cases({ initialId }: { initialId?: string }) {
       <header className="lk2-top">
         <Link className="lk2-brand" href="/"><OctoMark size={30} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
         <nav>
+          <Link href="/">Dashboard</Link>
           <Link href="/search">Search</Link>
-          <Link href="/cases">Cases</Link>
-          <Link href="/admin">Admin</Link>
+          {/* Offered only to somebody it will not refuse. A link that bounces you is
+              indistinguishable from an account that does not work. */}
+          {(me?.role === "owner" || me?.role === "admin") && <Link href="/admin">Admin</Link>}<Link href="/profile">Account</Link>
         </nav>
       </header>
 

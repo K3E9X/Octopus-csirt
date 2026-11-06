@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientConfig } from "@/lib/reqconfig";
 import { currentUser, authEnabled } from "@/lib/session-server";
+import { isAtLeast } from "@/lib/auth";
 import { leakOsint, estimateCost, complexityOf, tokenize, isBillableWord, formatCost } from "@/lib/leakosint";
 import { buildReport, headline } from "@/lib/report";
 import { buildSubject } from "@/lib/subject";
@@ -153,6 +154,16 @@ export async function POST(req: NextRequest) {
   const user = authEnabled ? await currentUser() : null;
   if (authEnabled && !user) {
     return NextResponse.json({ error: "Sign in to run a search.", needsAuth: true }, { status: 401 });
+  }
+  // A pending account is not an account with no money, it is an account nobody has let
+  // in yet. Leaving a zero balance to stop it answered "insufficient credits" to
+  // somebody who was never meant to be inside at all, which is the wrong sentence and
+  // invites exactly the wrong fix: granting them credit.
+  if (user && !isAtLeast(user.role, "hunter")) {
+    return NextResponse.json({
+      error: "This account is waiting to be approved. An owner or an administrator has to let it in before it can search.",
+      pending: true,
+    }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));

@@ -38,6 +38,20 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
   }
   useEffect(() => { if (!disabledReason) load(); }, [disabledReason]);
 
+  async function cut(id: string, email: string) {
+    if (!window.confirm(`Sign ${email} out of every browser? The account keeps working; they just have to sign in again.`)) return;
+    const r = await fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", id }) });
+    const d = await r.json().catch(() => ({}));
+    setMsg(d?.note || d?.error || "done"); setTimeout(() => setMsg(""), 5000); load();
+  }
+
+  async function remove(id: string, email: string) {
+    if (!window.confirm(`Remove ${email}?\n\nThe account goes and every session with it. Its queries STAY in the audit trail and its pinned facts stay in their cases, which is the point of an audit trail.`)) return;
+    const r = await fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "delete", id }) });
+    const d = await r.json().catch(() => ({}));
+    setMsg(d?.note || d?.error || "done"); setTimeout(() => setMsg(""), 6000); load();
+  }
+
   async function changeRole(id: string, role: string) {
     const r = await fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, role }) });
     const d = await r.json();
@@ -88,11 +102,11 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
         <h2>Accounts <em>{users.length}</em></h2>
         {trial && <p className="adm-note">{trial}</p>}
         <table className="datatable">
-          <thead><tr><th>email</th><th>name</th><th>role</th>{metered && <th>credits · searches</th>}<th>created</th><th>last seen</th></tr></thead>
+          <thead><tr><th>email</th><th>name</th><th>role</th>{metered && <th>credits · searches</th>}<th>created</th><th>last seen</th><th>access</th></tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td className="t-handle">{u.email}{u.id === me?.id ? " · you" : ""}</td>
+                <td className="t-handle">{u.email}{u.id === me?.id ? " · you" : ""}{u.role === "pending" && <em className="adm-pending">waiting</em>}</td>
                 <td>{u.name || ","}</td>
                 <td>
                   {/* Nobody may act on a role at or above their own, so the options
@@ -104,6 +118,7 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
                     {role === "owner" && <option value="owner">owner</option>}
                     {role === "owner" && <option value="admin">admin</option>}
                     <option value="hunter">hunter</option>
+                    <option value="pending">pending</option>
                     <option value="disabled">disabled</option>
                   </select>
                 </td>
@@ -122,6 +137,17 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
                 )}
                 <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td>{u.lastSeen ? new Date(u.lastSeen).toLocaleString() : "never"}</td>
+                <td className="adm-access">
+                  {u.role === "pending" && u.id !== me?.id && (
+                    <button className="adm-approve" onClick={() => changeRole(u.id, "hunter")}>approve</button>
+                  )}
+                  {/* Two different acts, kept apart. Revoking stops the account working
+                      now and leaves it in place; removing takes the account away and
+                      leaves its queries in the audit trail, because a trail that can be
+                      emptied by deleting the account that filled it proves nothing. */}
+                  <button className="adm-cut" disabled={u.id === me?.id} onClick={() => cut(u.id, u.email)}>revoke</button>
+                  <button className="adm-cut danger" disabled={u.id === me?.id} onClick={() => remove(u.id, u.email)}>remove</button>
+                </td>
               </tr>
             ))}
             {users.length === 0 && <tr><td className="t-empty" colSpan={metered ? 6 : 5}>no account yet</td></tr>}

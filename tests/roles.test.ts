@@ -66,3 +66,23 @@ test("a malformed address is left alone rather than mangled", () => {
   assert.equal(canonicalEmail("@nolocal.com"), "@nolocal.com");
   assert.equal(canonicalEmail(""), "");
 });
+
+// ---- a session is revocable, which is the only reason to change a password ---------
+//
+// signSession and readSession refuse to work without a database, because without one
+// there are no accounts for a session to be about. So the structure is asserted here
+// and the behaviour is proved against a real Postgres: a live cookie stops being
+// accepted the moment the account's generation moves.
+
+import { signSession } from "../lib/auth.ts";
+
+test("a cookie carries the generation it was issued under", () => {
+  process.env.OCTOPUS_SESSION_SECRET = "a-long-enough-secret-for-tests";
+  const parts = signSession("usr_abc", 3).split(".");
+  // id . expiry . epoch . mac, and the epoch is signed with the rest rather than
+  // appended where it could be edited
+  assert.equal(parts.length, 4);
+  assert.equal(parts[0], "usr_abc");
+  assert.equal(parts[2], "3");
+  assert.notEqual(signSession("usr_abc", 3).split(".")[3], signSession("usr_abc", 4).split(".")[3]);
+});

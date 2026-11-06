@@ -45,10 +45,10 @@ const SESSION_DAYS = 14;
  * `analyst` and `tester` are deliberately the same code path with different balances.
  * Two code paths is how one of them ends up unguarded.
  */
-export type Role = "owner" | "admin" | "hunter" | "disabled";
+export type Role = "owner" | "admin" | "hunter" | "pending" | "disabled";
 
 /** Seniority, for comparisons. Nobody may act on a role at or above their own. */
-const RANK: Record<Role, number> = { owner: 4, admin: 3, hunter: 2, disabled: 0 };
+const RANK: Record<Role, number> = { owner: 4, admin: 3, hunter: 2, pending: 1, disabled: 0 };
 export const outranks = (a: Role, b: Role) => RANK[a] > RANK[b];
 export const isAtLeast = (r: Role, min: Role) => RANK[r] >= RANK[min];
 
@@ -65,6 +65,8 @@ export interface User {
   role: Role;
   createdAt: number;
   lastSeen?: number;
+  /** the session generation this account accepts; a cookie below it is dead */
+  sessEpoch: number;
 }
 
 /**
@@ -83,11 +85,12 @@ const ensureSchema = bootstrap(async () => {
         id         text PRIMARY KEY,
         email      text UNIQUE NOT NULL,
         name       text,
-        role       text NOT NULL DEFAULT 'hunter',
+        role       text NOT NULL DEFAULT 'pending',
         pw_hash    text NOT NULL,
         pw_salt    text NOT NULL,
         created_at bigint NOT NULL,
-        last_seen  bigint
+        last_seen  bigint,
+        sess_epoch integer NOT NULL DEFAULT 0
       )`;
 
       // Rows from the public build still carry its labels. Mapped rather than left to
@@ -95,6 +98,7 @@ const ensureSchema = bootstrap(async () => {
       // and every comparison against it is false: a silent demotion to less than
       // disabled. Runs after the table exists, which is the order it reads in.
       await q`UPDATE octopus_users SET role = 'hunter' WHERE role IN ('analyst', 'tester')`;
+      await q`ALTER TABLE IF EXISTS octopus_users ADD COLUMN IF NOT EXISTS sess_epoch integer NOT NULL DEFAULT 0`;
       await q`CREATE INDEX IF NOT EXISTS octopus_users_email ON octopus_users (email)`;
 
       // The address as typed is kept, mail has to reach it, but UNIQUENESS is on the
@@ -143,6 +147,7 @@ function rowToUser(r: any): User {
   return {
     id: r.id, email: r.email, name: r.name || undefined, role: r.role,
     createdAt: Number(r.created_at), lastSeen: r.last_seen ? Number(r.last_seen) : undefined,
+    sessEpoch: Number(r.sess_epoch ?? 0),
   };
 }
 
@@ -184,11 +189,11 @@ export async function createUser(email: string, password: string, name?: string)
   const pw = await hash(password, salt);
   const now = Date.now();
 
-  // Created as a hunter, ALWAYS. The administrator seat is claimed separately and
+  // Created as PENDING, ALWAYS. The administrator seat is claimed separately and
   // atomically below, so a failed insert here cannot burn it and a race cannot share it.
   try {
     await q`INSERT INTO octopus_users (id, email, email_key, name, role, pw_hash, pw_salt, created_at)
-            VALUES (${id}, ${mail}, ${key}, ${name || null}, ${"hunter"}, ${pw}, ${salt}, ${now})`;
+            VALUES (${id}, ${mail}, ${key}, ${name || null}, ${"pending"}, ${pw}, ${salt}, ${now})`;
   } catch (e) {
     const msg = String((e as any)?.message || e);
     if (/duplicate key|unique/i.test(msg)) return { error: "that address already has an account" };
@@ -197,11 +202,23 @@ export async function createUser(email: string, password: string, name?: string)
 
   // Exactly one row can exist here, so exactly one account can ever claim the
   // deployment. Every later owner is promoted deliberately, by one who already is.
-  let role: Role = "hunter";
+  let role: Role = "pending";
   try {
+    // The seat is claimed once and never re-auctioned, EXCEPT when whoever holds it no
+    // longer exists. Deleting the owner account used to leave the row pointing at a
+    // ghost: nobody could claim the seat, nobody could be promoted to owner because
+    // only an owner promotes, and the deployment had no way back short of editing the
+    // database by hand. The condition is narrow on purpose, and it is a condition
+    // rather than a check-then-write: it is evaluated by Postgres inside the statement,
+    // so two registrations racing for a vacant seat cannot both win it.
     const claimed = await q`INSERT INTO octopus_bootstrap (id, claimed_by, at)
                             VALUES (1, ${id}, ${now})
-                            ON CONFLICT (id) DO NOTHING
+                            ON CONFLICT (id) DO UPDATE
+                              SET claimed_by = EXCLUDED.claimed_by, at = EXCLUDED.at
+                              WHERE NOT EXISTS (
+                                SELECT 1 FROM octopus_users u
+                                WHERE u.id = octopus_bootstrap.claimed_by AND u.role = 'owner'
+                              )
                             RETURNING claimed_by`;
     if ((claimed as any[]).length) {
       await q`UPDATE octopus_users SET role = 'owner' WHERE id = ${id}`;
@@ -209,7 +226,7 @@ export async function createUser(email: string, password: string, name?: string)
     }
   } catch { /* the seat stays unclaimed; an existing admin can still promote */ }
 
-  return { user: { id, email: mail, name: name || undefined, role, createdAt: now } };
+  return { user: { id, email: mail, name: name || undefined, role, createdAt: now, sessEpoch: 0 } };
 }
 
 /** Has the administrator seat been taken? Used to decide what the sign-in page may say. */
@@ -306,23 +323,110 @@ export async function setRole(id: string, role: Role, actor: User): Promise<{ ok
 // A signed cookie, not a session table: one HMAC verification instead of a query on
 // every request, and revocation is handled by the role check that follows it.
 
-export function signSession(userId: string): string {
+/**
+ * The session cookie, and the thing that makes it revocable.
+ *
+ * It is a signed statement rather than a row, which is what lets any replica accept it
+ * without shared state. The cost of that is that nothing can take one back: a cookie
+ * stays valid for its whole life wherever it is, including in somebody else's browser.
+ *
+ * So it carries an EPOCH alongside the account id, and the account carries the epoch it
+ * will accept. Bumping the number on the account invalidates every cookie ever issued
+ * to it, everywhere, at once, with no server-side session list to keep. Changing a
+ * password bumps it, which is the whole reason people change passwords.
+ */
+export function signSession(userId: string, epoch = 0): string {
   const exp = Date.now() + SESSION_DAYS * 86400_000;
-  const body = `${userId}.${exp}`;
+  const body = `${userId}.${exp}.${epoch}`;
   const mac = createHmac("sha256", secret()).update(body).digest("base64url");
   return `${body}.${mac}`;
 }
 
-export function readSession(token?: string | null): string | null {
+export function readSession(token?: string | null): { id: string; epoch: number } | null {
   if (!token || !sessionsUsable()) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [id, expRaw, mac] = parts;
-  const expected = createHmac("sha256", secret()).update(`${id}.${expRaw}`).digest("base64url");
+  // Cookies issued before the epoch existed have three parts and are not accepted. A
+  // forced sign-in once, at upgrade, is the correct price for making every session
+  // revocable afterwards.
+  if (parts.length !== 4) return null;
+  const [id, expRaw, epochRaw, mac] = parts;
+  const expected = createHmac("sha256", secret()).update(`${id}.${expRaw}.${epochRaw}`).digest("base64url");
   const a = Buffer.from(mac), b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   if (Number(expRaw) < Date.now()) return null;
-  return id;
+  const epoch = Number(epochRaw);
+  if (!Number.isFinite(epoch)) return null;
+  return { id, epoch };
 }
 
 export const SESSION_MAX_AGE = SESSION_DAYS * 86400;
+
+/**
+ * Changing your own password.
+ *
+ * THE CURRENT ONE IS REQUIRED, and it is not a formality. A session cookie left open on
+ * an unlocked machine is the ordinary way an account is taken over inside an office;
+ * without this check, whoever sat down at it could lock the real owner out of their own
+ * account in two clicks. Asking for the current password means possessing the session
+ * is not the same as possessing the account.
+ *
+ * The salt is regenerated too. Keeping it would leave the old and new hashes related in
+ * a way nothing needs them to be.
+ */
+export async function changePassword(userId: string, current: string, next: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const q = sql();
+  if (!q) return { ok: false, error: "no database" };
+  await ensureSchema();
+  const rows = await q`SELECT pw_hash, pw_salt FROM octopus_users WHERE id = ${userId} LIMIT 1`;
+  const row = (rows as any[])[0];
+  if (!row) return { ok: false, error: "no such account" };
+  if (!sameHash(await hash(current, row.pw_salt), row.pw_hash)) {
+    return { ok: false, error: "that is not your current password" };
+  }
+  const problem = passwordProblem(next);
+  if (problem) return { ok: false, error: problem };
+  if (next === current) return { ok: false, error: "that is the password you already have" };
+  const salt = randomBytes(16).toString("hex");
+  // The epoch moves with the password. Every cookie issued against the old one stops
+  // being accepted on the next request, in every browser, which is what somebody
+  // changing a password because another person has it is actually asking for.
+  await q`UPDATE octopus_users
+          SET pw_hash = ${await hash(next, salt)}, pw_salt = ${salt}, sess_epoch = sess_epoch + 1
+          WHERE id = ${userId}`;
+  return { ok: true };
+}
+
+/** Cut every session an account has, without touching the account. */
+export async function revokeSessions(userId: string): Promise<boolean> {
+  const q = sql();
+  if (!q) return false;
+  await ensureSchema();
+  await q`UPDATE octopus_users SET sess_epoch = sess_epoch + 1 WHERE id = ${userId}`;
+  return true;
+}
+
+/**
+ * Removing an account, and what that does and does not undo.
+ *
+ * Sessions here are signed cookies rather than rows, so there is nothing to revoke:
+ * every request reads the account back, and an account that is gone fails that read.
+ * Deletion is therefore immediate across every browser the person is signed into, with
+ * no logout to wait for.
+ *
+ * WHAT STAYS. The audit trail keeps their queries, and their cases keep the facts they
+ * pinned, both still carrying their address. That is the point of an audit trail: one
+ * that can be emptied by deleting the account that filled it proves nothing about
+ * anything. Deleting a person's history is a separate, deliberate act and this is not it.
+ */
+export async function deleteUser(id: string, by: Role): Promise<{ ok: boolean; error?: string }> {
+  const q = sql();
+  if (!q) return { ok: false, error: "no database" };
+  await ensureSchema();
+  const rows = await q`SELECT role FROM octopus_users WHERE id = ${id} LIMIT 1`;
+  const target = (rows as any[])[0]?.role as Role | undefined;
+  if (!target) return { ok: false, error: "no such account" };
+  // the ladder applies to deletion exactly as it applies to everything else
+  if (!outranks(by, target)) return { ok: false, error: `a ${by} cannot remove a ${target}` };
+  await q`DELETE FROM octopus_users WHERE id = ${id}`;
+  return { ok: true };
+}

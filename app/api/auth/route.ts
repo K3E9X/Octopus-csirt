@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (r.error || !r.user) return NextResponse.json({ error: r.error || "could not create the account" }, { status: 400 });
     await seedStarter(r.user.id);   // a welcome balance so the first search needs no admin round-trip
     const res = NextResponse.json({ ok: true, user: r.user, firstAccount: r.user.role === "admin" });
-    setCookie(res, signSession(r.user.id));
+    setCookie(res, signSession(r.user.id, r.user.sessEpoch));
     return res;
   }
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   // help, and telling a disabled account it is disabled is the same leak
   if (!user) return NextResponse.json({ error: "wrong address or password, or the account is disabled" }, { status: 401 });
   const res = NextResponse.json({ ok: true, user });
-  setCookie(res, signSession(user.id));
+  setCookie(res, signSession(user.id, user.sessEpoch));
   return res;
 }
 

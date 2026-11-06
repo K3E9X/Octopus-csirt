@@ -80,8 +80,18 @@ export default function Dashboard() {
 
   return (
     <Shell me={d.me} balance={d.balance} metered={d.metered}>
+      {/* Before anything else: an account nobody has let in yet. Everything below it
+          would otherwise read as a tool that is broken rather than one that is waiting. */}
+      {d.me?.role === "pending" && (
+        <p className="dsh-warn">
+          This account is waiting to be approved. Your password works and nothing is
+          broken: an owner or an administrator has to let you in before you can search or
+          open a case. <Link href="/profile">Your account</Link>
+        </p>
+      )}
+
       {/* The two things that stop work, if either is true. */}
-      {noBalance && (
+      {d.me?.role !== "pending" && noBalance && (
         <p className="dsh-warn">
           No credits. Searches will be refused until an owner grants some.
           {d.me?.role === "owner" && <> <Link href="/admin">Grant them.</Link></>}
@@ -180,6 +190,7 @@ function Shell({ children, me, balance, metered }: {
           <Link href="/search">Search</Link>
           <Link href="/cases">Cases</Link>
           {me && (me.role === "owner" || me.role === "admin") && <Link href="/admin">Admin</Link>}
+          <Link href="/profile">{me?.name || me?.email?.split("@")[0] || "Account"}</Link>
         </nav>
       </header>
       <main className="dsh-main">

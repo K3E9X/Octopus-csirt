@@ -138,11 +138,11 @@ export default function SearchApp() {
   const [view, setView] = useState<View>("identity");
   // Each hop is kept, so an investigation can be walked back rather than only forward.
   const [trail, setTrail] = useState<{ label: string; report: Report; headline: string }[]>([]);
-  const [account, setAccount] = useState<{ authed: boolean; email?: string; balance?: number; metered: boolean } | null>(null);
+  const [account, setAccount] = useState<{ authed: boolean; email?: string; role?: string; balance?: number; metered: boolean } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth").then((r) => r.json()).then((d) =>
-      setAccount({ authed: !!d.me, email: d.me?.email, balance: d.balance, metered: !!d.metered })).catch(() => {});
+      setAccount({ authed: !!d.me, email: d.me?.email, role: d.me?.role, balance: d.balance, metered: !!d.metered })).catch(() => {});
   }, []);
 
   // The quote is fetched as the operator types the subject, before anything is spent.
@@ -203,7 +203,7 @@ export default function SearchApp() {
         <Link className="lk2-brand" href="/"><OctoMark size={30} /><span><b>OCTOPUS</b><small>CSIRT</small></span></Link>
         <nav>
           {account?.authed
-            ? <>{account.metered && typeof account.balance === "number" && <span className="lk2-bal" title="one credit is one standard search">{account.balance.toLocaleString("en-US")} credit{account.balance === 1 ? "" : "s"}</span>}<Link href="/cases">Cases</Link><Link href="/admin">Admin</Link></>
+            ? <>{account.metered && typeof account.balance === "number" && <span className="lk2-bal" title="one credit is one standard search">{account.balance.toLocaleString("en-US")} credit{account.balance === 1 ? "" : "s"}</span>}<Link href="/">Dashboard</Link><Link href="/cases">Cases</Link>{(account.role === "owner" || account.role === "admin") && <Link href="/admin">Admin</Link>}<Link href="/profile">Account</Link></>
             : <Link className="lk2-cta" href="/signin">Sign in</Link>}
         </nav>
       </header>

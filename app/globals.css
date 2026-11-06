@@ -1470,3 +1470,29 @@ body::after {
 .csr-exports { margin-left: 14px; display: inline-flex; gap: 12px; }
 .csr-exports a { font-size: 12px; color: var(--ink-3); text-decoration: none; transition: color .14s; }
 .csr-exports a:hover { color: var(--accent); }
+
+/* ---- profile, and the account controls on the admin screen ---- */
+.prf-dl { display: grid; grid-template-columns: 170px 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+.prf-dl dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); padding-top: 3px; }
+.prf-dl dd { margin: 0; color: var(--ink-2); }
+.prf-dl dd code { font-family: var(--font-mono); color: var(--ink); }
+.prf-dl dd b { color: var(--ink); }
+.prf-note { font-size: 11px; color: var(--ink-4); }
+.prf-form { display: grid; gap: 6px; max-width: 380px; }
+.prf-form label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); margin-top: 8px; }
+.prf-form input { background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--r-sm); padding: 9px 12px; color: var(--ink); font: inherit; font-size: 14px; }
+.prf-form button { margin-top: 14px; justify-self: start; background: var(--accent); color: #140a04; border: 0; border-radius: var(--r-sm); padding: 9px 18px; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+.prf-form button:disabled { opacity: .4; cursor: not-allowed; }
+.prf-strength { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
+
+.adm-pending { font-style: normal; font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-left: 9px; }
+.adm-access { white-space: nowrap; }
+.adm-approve, .adm-cut {
+  background: transparent; border: 1px solid var(--ctl-bd); border-radius: var(--r-xs);
+  padding: 2px 9px; margin-right: 6px; cursor: pointer; font: inherit; font-size: 11px; color: var(--ctl);
+  transition: border-color .14s, color .14s;
+}
+.adm-approve { border-color: var(--accent); color: var(--accent); }
+.adm-cut:hover:not(:disabled) { border-color: var(--ink-2); color: var(--ink); }
+.adm-cut.danger:hover:not(:disabled) { border-color: var(--sev-crit, var(--accent)); color: var(--accent); }
+.adm-cut:disabled { opacity: .3; cursor: not-allowed; }

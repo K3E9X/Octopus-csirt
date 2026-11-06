@@ -20,10 +20,14 @@ export { authEnabled, sessionsUsable };
  */
 export async function currentUser(): Promise<User | null> {
   if (!authEnabled) return null;
-  const id = readSession(cookies().get(SESSION_COOKIE)?.value);
-  if (!id) return null;
-  const user = await getUser(id);
+  const claim = readSession(cookies().get(SESSION_COOKIE)?.value);
+  if (!claim) return null;
+  const user = await getUser(claim.id);
   if (!user || user.role === "disabled") return null;
+  // A cookie from before the account's current generation is refused. This is what
+  // makes a password change, or an administrator revoking access, take effect in every
+  // browser on the next request rather than whenever a cookie happens to expire.
+  if (claim.epoch !== user.sessEpoch) return null;
   return user;
 }
 

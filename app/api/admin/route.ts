@@ -2,7 +2,7 @@
 // hides a button is not access control.
 
 import { NextRequest, NextResponse } from "next/server";
-import { listUsers, setRole, adminGrantCap, outranks, type Role } from "@/lib/auth";
+import { listUsers, setRole, adminGrantCap, outranks, deleteUser, revokeSessions, getUser, type Role } from "@/lib/auth";
 import { requireAdmin, requireOwner, authEnabled } from "@/lib/session-server";
 import { listAudit, verifyAuditChain, auditEnabled } from "@/lib/audit";
 import { grant, balanceOf, ledgerOf, creditsToMicro, balanceCredits, creditsEnabled, trialNote } from "@/lib/credits";
@@ -48,6 +48,29 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "administrator only" }, { status: 403 });
   const body = await req.json().catch(() => null);
   const id = String(body?.id || "");
+
+  // ---- cutting access, and removing an account -------------------------------------
+  // A leaver, a laptop left on a train, a password somebody else has seen: the account
+  // has to stop working NOW, and its queries have to stay in the audit trail. Those are
+  // two different actions and they are kept apart.
+
+  if (body?.action === "revoke") {
+    const target = await getUser(id);
+    if (!target) return NextResponse.json({ error: "no such account" }, { status: 404 });
+    if (target.id !== admin.id && !outranks(admin.role, target.role)) {
+      return NextResponse.json({ error: `a ${admin.role} cannot act on a ${target.role}` }, { status: 403 });
+    }
+    await revokeSessions(id);
+    return NextResponse.json({ ok: true, note: "Every session for that account is signed out." });
+  }
+
+  if (body?.action === "delete") {
+    if (id === admin.id) return NextResponse.json({ error: "you cannot remove your own account" }, { status: 400 });
+    const r = await deleteUser(id, admin.role);
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: 403 });
+    // Said back rather than left to be assumed: the trail outlives the account.
+    return NextResponse.json({ ok: true, note: "Account removed. Its queries stay in the audit trail and its pinned facts stay in their cases." });
+  }
 
   // ---- the source token ------------------------------------------------------------
   // Stored once by an administrator and used by every search on the deployment, so
@@ -139,7 +162,7 @@ export async function POST(req: NextRequest) {
   }
 
   const role = String(body?.role || "") as Role;
-  if (!id || !["owner", "admin", "hunter", "disabled"].includes(role)) {
+  if (!id || !["owner", "admin", "hunter", "pending", "disabled"].includes(role)) {
     return NextResponse.json({ error: "id and a valid role are required" }, { status: 400 });
   }
   // Seniority is enforced in setRole, which knows who is asking, nobody may act on a
