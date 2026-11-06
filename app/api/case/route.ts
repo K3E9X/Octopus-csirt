@@ -19,6 +19,7 @@ import {
   addEntity, pinFact, unpinFact, removeEntity, setCaseStatus,
 } from "@/lib/casestore";
 import { buildBoard, testFact, type EntityKind } from "@/lib/casework";
+import { caseToCSV, caseToJSON, caseExportName } from "@/lib/export";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,26 @@ export async function GET(req: NextRequest) {
 
   const found = await readCase(cid);
   if (!found) return NextResponse.json({ error: "No such case." }, { status: 404 });
+
+  // ---- out of the tool ----
+  // A case file that cannot leave is not an incident record. Served as a download
+  // rather than as JSON the interface has to turn into a file, so the filename and the
+  // content type come from the server and a responder gets something they can attach.
+  const format = req.nextUrl.searchParams.get("format");
+  if (format === "csv" || format === "json") {
+    const board = buildBoard(found.entities, found.facts);
+    const body = format === "csv"
+      ? caseToCSV(found.file, found.entities, found.facts)
+      : caseToJSON(found.file, found.entities, found.facts, board, user.email);
+    return new NextResponse(body, {
+      headers: {
+        "content-type": format === "csv" ? "text/csv; charset=utf-8" : "application/json; charset=utf-8",
+        "content-disposition": `attachment; filename="${caseExportName(found.file, format)}"`,
+        // an export is a point in time and must never be served from a cache
+        "cache-control": "no-store",
+      },
+    });
+  }
 
   // The board is derived on read, never stored. A cached board that disagreed with the
   // facts under it would be worse than no board, and that is what a cache becomes the

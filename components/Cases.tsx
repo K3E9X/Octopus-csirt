@@ -194,6 +194,11 @@ function CaseBoard({ data, act, back, busy }: {
         <button className="csr-link" onClick={back}>← all cases</button>
         <h1 className="csr-h1"><code>{file.ref}</code> {file.title}</h1>
         <span className="csr-meta">opened by {file.openedBy} on {when(file.openedAt)}{file.status === "closed" ? " · closed" : ""}</span>
+        {/* Plain links, so the browser does the download and the server names the file. */}
+        <span className="csr-exports">
+          <a href={`/api/case?id=${encodeURIComponent(file.id)}&format=csv`}>export CSV</a>
+          <a href={`/api/case?id=${encodeURIComponent(file.id)}&format=json`}>export JSON</a>
+        </span>
       </div>
 
       {/* The gaps come FIRST. A summary of what is known reads as progress; the list of

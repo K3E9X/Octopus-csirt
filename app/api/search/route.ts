@@ -19,6 +19,7 @@ import { currentUser, authEnabled } from "@/lib/session-server";
 import { leakOsint, estimateCost, complexityOf, tokenize, isBillableWord, formatCost } from "@/lib/leakosint";
 import { buildReport, headline } from "@/lib/report";
 import { buildSubject } from "@/lib/subject";
+import { looksLikeDomainQuery, domainOf, buildDomainReport } from "@/lib/domain";
 import { recordQuery, auditEnabled } from "@/lib/audit";
 import { sourceToken } from "@/lib/sourcekey";
 import { creditsEnabled, priceCredits, searchCredits, balanceCredits, fmtPrice, debit, refund, balanceOf, fmtUSD } from "@/lib/credits";
@@ -317,6 +318,23 @@ export async function POST(req: NextRequest) {
     // The region travels with the report: deciding whether two rows give the same
     // number means parsing both, and parsing a national-format number needs the same
     // region the search was made under.
+    // A DOMAIN IS NOT A SUBJECT. Put through the one-person machinery, every row fails
+    // attribution against "@corp.example" and the report comes back CLEAR with nothing
+    // in it: a confident, detailed, empty answer to the most obvious question a CSIRT
+    // asks about its own estate. It gets a roster instead, and two people at one
+    // employer stay two people.
+    const dom = looksLikeDomainQuery(raw) ? domainOf(raw) : null;
+    if (dom) {
+      const domainReport = buildDomainReport(dom, res.databases);
+      return NextResponse.json({
+        domain: domainReport,
+        query: { sent: subject.query, limit, rowsReturned: res.rowCount, databases: res.databases.length },
+        charged: creditsEnabled && user ? searchCredits(estimateCost(subject.query, limit)) : 0,
+        deployment: { metered: creditsEnabled && !!user, logged: auditEnabled, operator: user?.email || null },
+        balance: user ? balanceCredits(await balanceOf(user.id)) : undefined,
+      });
+    }
+
     const report = buildReport(subject, res.databases, region);
     return NextResponse.json({
       report,

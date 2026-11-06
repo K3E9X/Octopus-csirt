@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUser, verifyUser, countUsers, bootstrapClaimed, signSession, SESSION_COOKIE, SESSION_MAX_AGE, authEnabled, sessionsUsable } from "@/lib/auth";
 import { currentUser } from "@/lib/session-server";
-import { seedStarter, balanceOf, creditsEnabled } from "@/lib/credits";
+import { seedStarter, balanceOf, balanceCredits, creditsEnabled } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,6 +68,11 @@ export async function GET() {
     firstAccount: authEnabled ? !(await bootstrapClaimed()) : false,
     metered: creditsEnabled,
     me: me ? { id: me.id, email: me.email, name: me.name, role: me.role } : null,
-    balance: me ? await balanceOf(me.id) : undefined,
+    // IN WHOLE CREDITS, which is what every other endpoint returns and what the header
+    // renders. This returned micro-dollars, so the balance read "357,150 credits" for an
+    // account holding fifty until the first search of the session replaced it with the
+    // real figure. Every other display path already converted; this one was the
+    // exception, which is why it survived.
+    balance: me ? balanceCredits(await balanceOf(me.id)) : undefined,
   });
 }

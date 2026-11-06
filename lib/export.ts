@@ -102,3 +102,72 @@ export function exportName(report: SearchReport, ext: string, now = new Date()):
   const subject = report.subject.canonical.replace(/[^a-z0-9@._+-]+/gi, "_").slice(0, 48) || "subject";
   return `octopus-${subject}-${stamp}.${ext}`;
 }
+
+// ---- a case, out of the tool ---------------------------------------------------------
+//
+// A case file that cannot leave is not an incident record. It has to go into the ticket,
+// the handover, the thing somebody signs, and it has to carry its provenance with it:
+// which analyst pinned which fact, out of which database, and when.
+//
+// The same formula neutralisation applies and for a sharper reason here. Every pinned
+// value came out of a breach dump, so it was written by whoever assembled the dump, and
+// a case export is opened in a spreadsheet by an incident responder under time pressure.
+// That is the best possible moment to land a payload on somebody.
+
+import type { CaseFile, CaseEntity, CaseFact, Board } from "./casework";
+
+export function caseToCSV(file: CaseFile, entities: CaseEntity[], facts: CaseFact[]): string {
+  const at = (t?: number) => (t ? new Date(t).toISOString() : "");
+  const byId = new Map(entities.map((e) => [e.id, e]));
+  const lines: string[] = [];
+
+  lines.push(row(["case", "title", "status", "opened_by", "opened_at", "closed_at"]));
+  lines.push(row([file.ref, file.title, file.status, file.openedBy, at(file.openedAt), at(file.closedAt)]));
+  lines.push("");
+
+  lines.push(row(["selector_kind", "selector", "label", "added_at"]));
+  for (const e of entities) lines.push(row([e.kind, e.value, e.label || "", at(e.addedAt)]));
+  lines.push("");
+
+  lines.push(row(["selector", "field", "value", "category", "severity", "source", "pinned_by", "pinned_at", "note"]));
+  for (const f of facts) {
+    const e = byId.get(f.entityId);
+    lines.push(row([e?.label || e?.value || f.entityId, f.label, f.value, f.category, f.severity, f.source, f.addedBy, at(f.addedAt), f.note || ""]));
+  }
+  return lines.join("\r\n");
+}
+
+/**
+ * The whole case, including what the board concluded from it.
+ *
+ * The board is DERIVED, so including it is including a snapshot of an opinion rather
+ * than a fact. It is in here anyway, marked as derived, because an incident record that
+ * says "these three selectors were treated as one person" has to be able to show what
+ * that was based on six months later, when the code that drew the conclusion has moved on.
+ */
+export function caseToJSON(file: CaseFile, entities: CaseEntity[], facts: CaseFact[], board: Board, by: string): string {
+  return JSON.stringify({
+    exportedFrom: "octopus-csirt",
+    exportedBy: by,
+    exportedAt: new Date().toISOString(),
+    case: file,
+    entities,
+    facts,
+    derived: {
+      note: "Computed from the facts above at export time, not stored. It is a conclusion, not evidence.",
+      components: board.graph.components,
+      loadBearing: board.loadBearing,
+      network: board.network,
+      devices: board.devices.map((d) => ({ agent: d.agent.raw, read: d.agent, entities: d.entities, sources: d.sources })),
+      location: board.geo,
+      locationLine: board.geoLine,
+      timeline: board.timeline,
+      gaps: board.gaps,
+    },
+  }, null, 2);
+}
+
+export function caseExportName(file: CaseFile, ext: string, now = new Date()): string {
+  const ref = file.ref.replace(/[^a-z0-9._-]+/gi, "_").slice(0, 48) || "case";
+  return `case-${ref}-${now.toISOString().slice(0, 10)}.${ext}`;
+}

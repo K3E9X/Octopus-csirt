@@ -1,13 +1,14 @@
-import Landing from "@/components/Landing";
-import { currentUser, authEnabled } from "@/lib/session-server";
-// Built here rather than in the component: buildReport pulls in libphonenumber, and a
-// 150 KB parser has no business in the bundle of the page people see first. The report
-// is plain data, so it crosses as a prop.
-import { demoReport } from "@/lib/demo";
+import Dashboard from "@/components/Dashboard";
+import { authEnabled } from "@/lib/session-server";
+import { redirect } from "next/navigation";
+import { currentUser } from "@/lib/session-server";
 
 export const dynamic = "force-dynamic";
 
+// The front page is the dashboard, not a pitch. A visitor who is not signed in has
+// nothing to see here, so they are sent to the door rather than shown an empty shell
+// that waits for a fetch to tell them the same thing.
 export default async function Page() {
-  const user = authEnabled ? await currentUser() : null;
-  return <Landing signedIn={!authEnabled || !!user} demo={demoReport()} />;
+  if (authEnabled && !(await currentUser())) redirect("/signin?next=/");
+  return <Dashboard />;
 }

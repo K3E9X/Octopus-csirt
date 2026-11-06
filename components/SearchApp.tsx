@@ -22,6 +22,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { OctoMark } from "./OctoMark";
 import { FACET_ORDER, FACET_LABEL } from "@/lib/identity";
+import type { DomainReport, DomainAccount } from "@/lib/domain";
 import { VIEWS, type ViewId } from "@/lib/views";
 
 // the constellation view is SVG-heavy and only needed once a report exists
@@ -132,6 +133,7 @@ export default function SearchApp() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [report, setReport] = useState<Report | null>(null);
+  const [domain, setDomain] = useState<DomainReport | null>(null);
   const [headline, setHeadline] = useState("");
   const [view, setView] = useState<View>("identity");
   // Each hop is kept, so an investigation can be walked back rather than only forward.
@@ -167,7 +169,17 @@ export default function SearchApp() {
     // let the scan animation breathe for a beat so it never flickers
     await new Promise((r) => setTimeout(r, Math.max(0, 1100 - (Date.now() - started))));
 
+    // A domain answers with a roster, not a subject. Branching here rather than
+    // pretending it is a report keeps the two shapes from leaking into each other.
+    if (res.status === 200 && res.data.domain) {
+      setDomain(res.data.domain); setReport(null);
+      setStep("report"); setBusy(false);
+      if (typeof res.data.balance === "number") setAccount((a) => (a ? { ...a, balance: res.data.balance } : a));
+      return;
+    }
+
     if (res.status === 200 && res.data.report) {
+      setDomain(null);
       const rep: Report = res.data.report;
       setReport(rep); setHeadline(res.data.headline || "");
       setView(rep.verdict === "clear" ? (rep.others.length ? "category" : "identity") : "identity");
@@ -182,7 +194,7 @@ export default function SearchApp() {
   }, [subject, basis, caseRef, permutations, limit]);
 
   const reset = useCallback(() => {
-    setStep("enter"); setReport(null); setErr(""); setBasis(""); setCaseRef(""); setPermutations(false);
+    setStep("enter"); setReport(null); setDomain(null); setErr(""); setBasis(""); setCaseRef(""); setPermutations(false);
   }, []);
 
   return (
@@ -205,6 +217,8 @@ export default function SearchApp() {
           <Basis {...{ subject, quote, basis, setBasis, caseRef, setCaseRef, permutations, setPermutations, limit, setLimit, run, busy, err, reset }} />
         )}
         {step === "loading" && <Scanning subject={subject} />}
+        {step === "report" && domain && <DomainView d={domain} reset={reset} caseRef={caseRef} />}
+
         {step === "report" && report && (
         <ReportView {...{ report, headline, view, setView, reset, trail, caseRef }}
           onHop={(label, rep, head) => {
@@ -1238,5 +1252,101 @@ function QueryHistory({ onPick, caseRef }: { onPick: (v: string) => void; caseRe
         {!entries.length && <p className="lk2-hist-note">Nothing filed under {filter} yet.</p>}
       </div>
     </section>
+  );
+}
+
+
+// ---- a domain: the roster, not a subject ---------------------------------------------
+//
+// The answer to "who at this organisation is in breach data" is a list of people, and
+// the only thing that matters about the order is which of them needs something done
+// today. So: what to do first, then the accounts worst-first, then the databases.
+//
+// Nothing is consolidated across accounts. Two people at one employer who share a city
+// are two people, and a view that merged them would be answering a different question
+// from the one that was asked.
+
+function DomainView({ d, reset, caseRef }: { d: DomainReport; reset: () => void; caseRef?: string }) {
+  return (
+    <section className="lk2-report dmn">
+      <div className="dmn-head">
+        <button className="lk2-link" onClick={reset}>← new search</button>
+        <h1>{d.domain}</h1>
+        <p className="dmn-sum">{d.summary}</p>
+      </div>
+
+      <div className="dmn-stats">
+        <DomainStat n={d.counts.accounts} l="accounts" />
+        <DomainStat n={d.counts.withPlaintext} l="passwords in the clear" hot={d.counts.withPlaintext > 0} />
+        <DomainStat n={d.counts.inStealerLogs} l="in stealer logs" hot={d.counts.inStealerLogs > 0} />
+        <DomainStat n={d.counts.databases} l="databases" />
+      </div>
+
+      {/* First, because it is the only part anybody has to act on. */}
+      <section className="dmn-do">
+        <h2>What to do first</h2>
+        <ol>{d.actions.map((a) => <li key={a}>{a}</li>)}</ol>
+      </section>
+
+      <section className="dmn-sec">
+        <h2>Accounts <em>{d.accounts.length}</em></h2>
+        {d.accounts.length === 0 ? (
+          <p className="dmn-off">No account at this domain appears in the index. That is not a clean bill of health: it is the absence of a record in one source.</p>
+        ) : (
+          <ul className="dmn-accs">
+            {d.accounts.map((a) => <Account key={a.address} a={a} caseRef={caseRef} />)}
+          </ul>
+        )}
+      </section>
+
+      {d.databases.length > 0 && (
+        <section className="dmn-sec">
+          <h2>Where they came from</h2>
+          <ul className="dmn-dbs">
+            {d.databases.map((db) => (
+              <li key={db.name} className={db.stealer ? "stealer" : ""}>
+                <code>{db.name}</code>
+                <span>{db.accounts} account{db.accounts === 1 ? "" : "s"}</span>
+                {db.stealer && <em>stealer log</em>}
+              </li>
+            ))}
+          </ul>
+          {d.excluded > 0 && (
+            <p className="dmn-off">
+              {d.excluded} row{d.excluded === 1 ? "" : "s"} the index returned belonged to other domains and were set aside.
+            </p>
+          )}
+        </section>
+      )}
+    </section>
+  );
+}
+
+function DomainStat({ n, l, hot }: { n: number; l: string; hot?: boolean }) {
+  return <div className={"dmn-stat" + (hot ? " hot" : "")}><b>{n}</b><span>{l}</span></div>;
+}
+
+function Account({ a, caseRef }: { a: DomainAccount; caseRef?: string }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <li className={"dmn-acc s-" + a.severity}>
+      <div className="dmn-acc-h">
+        <code>{a.address}</code>
+        {a.stealer && <span className="dmn-tag hot">stealer log</span>}
+        {a.passwords.length > 0 && <span className="dmn-tag hot">password in the clear</span>}
+        {a.hashes > 0 && <span className="dmn-tag">{a.hashes} hash{a.hashes === 1 ? "" : "es"}</span>}
+        <Link className="lk2-link" href={`/search?q=${encodeURIComponent(a.address)}${caseRef ? `&case=${encodeURIComponent(caseRef)}` : ""}`}>search this one</Link>
+      </div>
+      <div className="dmn-acc-m">
+        <span>{a.sources.length} database{a.sources.length === 1 ? "" : "s"}: {a.sources.join(", ")}</span>
+        {a.fieldNames.length > 0 && <span>{a.fieldNames.slice(0, 8).join(" · ")}{a.fieldNames.length > 8 ? ` and ${a.fieldNames.length - 8} more` : ""}</span>}
+      </div>
+      {a.passwords.length > 0 && (
+        <button className={"lk2-reveal-btn" + (shown ? " shown" : "")} onClick={() => setShown((v) => !v)}>
+          <code>{shown ? a.passwords.join("  ·  ") : "•".repeat(12)}</code>
+          <span>{shown ? "hide" : "reveal"}</span>
+        </button>
+      )}
+    </li>
   );
 }

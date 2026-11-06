@@ -142,6 +142,36 @@ is refunded, because it did not run.
 The split between owner and admin is the point rather than a tidier set of labels: an
 audit trail signed by someone who can also create the budget proves nothing.
 
+## The front page
+
+`/` is the dashboard, not a pitch. Three questions in the order somebody has them at
+nine in the morning: what am I in the middle of, what did I do last, can I start
+something now. No counters nobody acts on, because a dashboard made of numbers trains
+people to stop reading it and the first thing skipped is the line that mattered.
+
+Two things get a banner, and only two: no credits, and an audit chain that does not
+verify.
+
+## Domains
+
+Searching `@corp.example` answers the question a CSIRT actually asks about its own
+estate: **who here is in breach data**.
+
+It used to answer nothing. A domain went through the one-subject machinery, every row
+failed attribution against "@corp.example", and the report came back **clear** with
+zero data points: a confident, detailed, empty answer. It returns a roster now, and
+nothing is consolidated across accounts, because two people at one employer are two
+people.
+
+The distinction that decides the next hour is computed rather than left for a reader to
+spot: an address in a marketing list is an address in a marketing list, while the same
+address in a **stealer log** means a machine somebody was using was compromised, with
+whatever that session had open. A reset does not invalidate a stolen cookie, and the
+report says so.
+
+A hash is not a password. Telling a responder they have plaintext when they have bcrypt
+wastes the hour that mattered.
+
 ## Cases
 
 A hunt does not start as an identity. It starts as a stealer log, an insider's corporate
@@ -176,11 +206,18 @@ The board derives, at read time:
 - **Timeline.** Dated activity, with undated entries kept rather than dropped: a hole in
   a timeline reads as absence of activity, which is a different claim.
 
+A case leaves as CSV or JSON, carrying who pinned what out of which database. Values are
+neutralised against spreadsheet formula injection on the way out, and the reason is
+sharper here than on a report: every pinned value was written by whoever assembled the
+dump, and a case export is opened by a responder under time pressure. The JSON includes
+the board, marked as **derived**: a conclusion, not evidence.
+
 ## Structure
 
 ```
 app/search/        the search
 app/cases/         the investigation board
+app/page.tsx       the dashboard
 app/api/search/    GET quotes · POST runs
 lib/leakosint.ts   the source: cost, rate limit, parsing, refusals
 lib/subject.ts     what was asked for, and what to match rows against
@@ -194,6 +231,7 @@ lib/casestore.ts   where a case lives: three tables, no cached reports
 lib/ua.ts          the browser string, read
 lib/netintel.ts    what an address is, and whether it can carry a link
 lib/geo.ts         evidence of location, and where that stops
+lib/domain.ts      who at an organisation is in breach data
 lib/audit.ts       the hash-chained query log
 docs/              the API contract
 ```

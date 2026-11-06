@@ -42,7 +42,7 @@ const HAIRLINE = "157,178,180";
 /**
  * The sources an arm can bring back.
  *
- * Invented, and the same ones lib/demo.ts builds the demo report from. The aggregated
+ * Invented names, not real companies. The aggregated
  * lists are in the mix on purpose: half of what a breach index returns is a combolist
  * assembled from other people's dumps, and that is a fact about this category that the
  * product states everywhere else.

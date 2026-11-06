@@ -815,245 +815,6 @@ body::after {
 /* ---- views / motion / print / responsive ---- */
 .lk2-off { display: none; } .lk2-print-h { display: none; }
 @keyframes lk2-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes lk2-sonar { 0% { width: 44px; height: 44px; opacity: .6; } 100% { width: 108px; height: 108px; opacity: 0; } }
-@keyframes lk2-pop { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
-@keyframes lk2-draw { to { stroke-dashoffset: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .lk2 *, .lk2 *::before, .lk2 *::after { animation: none !important; }
-  /* The orbit has no entrance animation any more, it is a diagram somebody reads, not
-     a thing that performs, so there is nothing here to stop. Only the dimming, which
-     is a response to the pointer and stays. */
-  .lk2-node { opacity: 1 !important; }}
-@media print {
-  body::after, body::before { display: none !important; }
-  html, body, .lk2 { background: #fff !important; color: #111; }
-  .lk2-top nav, .lk2-tabs, .lk2-actions, .lk2-reveal, .lk2-link, .lk2-orbit { display: none !important; }
-  .lk2-off { display: block !important; }
-  .lk2-print-h { display: block; font-family: var(--font-display); font-weight: 600; font-size: 18px; color: #111; margin: 26px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
-  .lk2-brand b { color: #111; }
-  .lk2-report { max-width: 100%; }
-  .lk2-verdict, .lk2-cat, .lk2-src, .lk2-critical, .lk2-tl { break-inside: avoid; border-color: #ccc !important; background: #fff !important; box-shadow: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
-  .lk2-val { background: #f4f4f4 !important; }
-  .lk2-reveal-btn:not(.shown) code { letter-spacing: 0; }
-  .lk2 code, .lk2-verdict h2, .lk2-cat-h h3, .lk2-src-h h3, .lk2-meaning, .lk2-action, .lk2-src-info, .lk2-vstats b, .lk2-tl-name { color: #111 !important; }
-  .lk2-reveal-btn span { display: none !important; }}
-@media (max-width: 760px) {
-  .lk2-box { flex-direction: column; } .lk2-box button { padding: 12px; }
-  .lk2-hero { padding: 48px 0 30px; }
-  .lk2-vstats { flex-direction: row; }
-  .lk2-orbit { grid-template-columns: 1fr; width: 100%; margin-left: 0; transform: none; }
-  .lk2-orbit-side { position: static; }
-  .lk2-row { flex-direction: column; gap: 3px; } .lk2-row-k { width: auto; }}
-
-/* ---- Octopus Leak landing (/), same system as the product ---- */
-.lk2-home .lk2-hero { padding-bottom: 8px; }
-.lk2-hero-cta { display: inline-block; background: var(--accent); color: #140a04; font-weight: 600; font-size: 15px; padding: 13px 24px; border-radius: var(--r-sm); text-decoration: none; transition: background .14s, transform .14s; }
-.lk2-hero-cta:active { transform: translateY(1px); }
-.lk2-hero-cta:hover { background: var(--accent-hover); }
-
-.lk2-lp-sec { max-width: var(--page); margin: 0 auto; padding: 72px 0 0; }
-/* Left-aligned, under a hairline. Three centred headings stacked down a page read as a
-   brochure; an anchored left edge reads as a document, which is what this is. */
-.lk2-lp-sec > h2, .lk2-lp-trust > h2 {
-  font-weight: 600; font-size: clamp(23px, 2.8vw, 28px); letter-spacing: -.022em;
-  text-align: left; margin: 0 0 32px; padding-top: 22px; border-top: 1px solid var(--bd);
-}
-.lk2-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
-.lk2-step { padding: 2px 32px 2px 24px; border-left: 1px solid var(--bd); }
-.lk2-step:first-child { border-left: 0; padding-left: 0; }
-/* The numeral is navigation, not a highlight. The accent is spent once per screen, on
-   the thing the reader is meant to press. */
-.lk2-step-n { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink-4); margin-bottom: 16px; letter-spacing: .16em; }
-.lk2-step h3 { font-weight: 600; font-size: 16px; margin: 0 0 10px; letter-spacing: -.012em; }
-.lk2-step p { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin: 0; max-width: 34ch; }
-
-.lk2-views { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
-.lk2-vcard { padding: 22px 0; border-top: 1px solid var(--bd-subtle); }
-.lk2-vcard:nth-child(-n+2) { border-top: 0; padding-top: 0; }
-.lk2-vcard h3 { font-weight: 600; font-size: 15px; margin: 0 0 8px; color: var(--ink); letter-spacing: -.01em; }
-.lk2-vcard p { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin: 0; max-width: 46ch; }
-
-/* ---- a lead line under a section heading -------------------------------------
-   One sentence between the heading and the grid. A grid of equal-weight paragraphs
-   under a bare heading gets scanned and not read; a lead gives the eye somewhere to
-   land first and tells it what the grid is for. */
-.lk2-lp-sec > h2 + .lk2-sec-lead { margin-top: -22px; }
-.lk2-sec-lead { text-wrap: balance; font-size: 16px; line-height: 1.65; color: var(--ink-2); margin: 0 0 32px; max-width: 58ch; }
-
-/* ---- the capabilities --------------------------------------------------------
-   The ONE boxed thing on a page that is otherwise ruled hairlines, because this is the
-   section a visitor has to see and the rest of the page is already quiet. Emphasis is
-   relative: make everything a card and nothing is emphasised.
-
-   The accent is not spent here at rest, it arrives on hover, on the rule and the
-   numeral together, so the page still has exactly one orange thing standing still (the
-   button the reader is meant to press). */
-.lk2-feat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-.lk2-feat {
-  position: relative; padding: 24px 26px 26px; border: 1px solid var(--bd-subtle);
-  border-radius: var(--r-md); background: var(--bg-1);
-  transition: border-color .18s, background .18s, transform .18s;
-}
-/* the rule that lights up, a pseudo-element so it cannot inherit a border shorthand
-   from anything later in the cascade, which is how a previous accent went grey */
-.lk2-feat::before {
-  content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 2px;
-  border-radius: 2px; background: var(--accent); opacity: 0;
-  transform: scaleY(.4); transform-origin: center;
-  transition: opacity .2s, transform .2s;
-}
-.lk2-feat:hover { border-color: var(--bd); background: var(--bg-2); transform: translateY(-2px); }
-.lk2-feat:hover::before { opacity: 1; transform: scaleY(1); }
-.lk2-feat-n {
-  display: block; font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-  letter-spacing: .16em; color: var(--ink-4); margin-bottom: 14px; transition: color .18s;
-}
-.lk2-feat:hover .lk2-feat-n { color: var(--accent); }
-.lk2-feat h3 { font-weight: 600; font-size: 17px; margin: 0 0 6px; letter-spacing: -.014em; color: var(--ink); }
-/* the claim in six words: the line that gets read when the paragraph does not */
-.lk2-feat-k { margin: 0 0 12px !important; font-size: 14px; line-height: 1.5; color: var(--ink) !important; font-weight: 500; }
-.lk2-feat p { color: var(--ink-2); font-size: 14px; line-height: 1.62; margin: 0; }
-
-@media (hover: none) {
-  /* nothing hovers on a touch screen, so the accent is simply on */
-  .lk2-feat::before { opacity: .55; transform: scaleY(1); }}
-
-@media (max-width: 760px) { .lk2-feat-grid { grid-template-columns: 1fr; } }
-
-
-/* ======================================================================
-   THE DEMO, a real report on the front page.
-
-   Styled apart from the search surface on purpose. The product's report is
-   laid out for someone reading one subject for ten minutes; this is laid
-   out for someone deciding in eight seconds whether to keep scrolling, so
-   it is denser, flatter, and shows three views rather than seven.
-   ====================================================================== */
-.lk2-demo-sec { scroll-margin-top: 24px; }
-.lk2m { border: 1px solid var(--bd); border-radius: var(--r-lg); background: var(--bg-1); overflow: hidden; }
-
-/* the query, the verdict, and the three numbers that matter */
-.lk2m-bar {
-  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
-  padding: 14px 20px; border-bottom: 1px solid var(--bd); background: var(--bg-2);
-}
-.lk2m-q { font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
-.lk2m-spacer { flex: 1 1 40px; }
-.lk2m-bar b { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--ink); margin-left: 10px; }
-.lk2m-bar > span:not(.lk2m-q):not(.lk2m-verdict):not(.lk2m-spacer) {
-  font-size: 11px; letter-spacing: .04em; color: var(--ink-3); text-transform: uppercase;
-}
-.lk2m-verdict {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .14em;
-  text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-xs); border: 1px solid;
-}
-.lk2m-verdict.v-critical { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
-.lk2m-verdict.v-exposed { color: var(--confirm); border-color: rgba(255,201,77,.4); }
-.lk2m-verdict.v-clear { color: var(--ink-3); border-color: var(--bd); }
-
-.lk2m-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--bd); }
-.lk2m-tabs button {
-  flex: 0 1 auto; display: flex; flex-direction: column; gap: 2px; text-align: left;
-  background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
-  padding: 12px 22px; color: var(--ink-3); font: inherit; font-size: 14px; font-weight: 500;
-  transition: color .14s, border-color .14s;
-}
-.lk2m-tabs button em { font-style: normal; font-size: 11px; color: var(--ink-4); letter-spacing: .02em; }
-.lk2m-tabs button:hover { color: var(--ink-2); }
-.lk2m-tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
-
-.lk2m-body { padding: 22px 24px 26px; min-height: 330px; }
-.lk2m-sum { margin: 0 0 6px; font-size: 15px; line-height: 1.6; color: var(--ink); }
-.lk2m-corr { margin: 0 0 20px; font-size: 13px; color: var(--ink-3); }
-.lk2m-corr b { color: var(--ink-2); font-weight: 600; }
-
-.lk2m-facets { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 28px; }
-.lk2m-facet h4 {
-  margin: 0 0 7px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: .16em; text-transform: uppercase; color: var(--ink-4);
-}
-.lk2m-val { padding: 5px 0 5px 10px; border-left: 1px solid var(--bd-subtle); }
-/* corroborated by more than one database, a count, never a percentage */
-.lk2m-val.corr { border-left-color: var(--accent); }
-.lk2m-val code { display: block; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
-.lk2m-val.corr code { color: var(--ink); }
-.lk2m-val span { display: block; margin-top: 2px; font-size: 11px; color: var(--ink-4); }
-
-.lk2m-head {
-  margin: 20px 0 9px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
-}
-.lk2m-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 9px; }
-.lk2m-svc {
-  padding: 11px 13px; border: 1px solid var(--bd-subtle); border-radius: var(--r-sm);
-  background: var(--bg-2); border-left-width: 2px;
-}
-.lk2m-svc b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
-.lk2m-svc span { font-size: 11px; color: var(--ink-4); }
-/* the accent after the shorthand, or the shorthand resets it back to grey */
-.lk2m-svc.s-critical { border-left-color: var(--accent); }
-.lk2m-svc.s-high { border-left-color: var(--confirm); }
-.lk2m-svc.s-medium { border-left-color: var(--ink-3); }
-
-.lk2m-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
-.lk2m-cat { padding: 13px 15px; border: 1px solid var(--bd-subtle); border-radius: var(--r-sm); background: var(--bg-2); border-left-width: 2px; }
-.lk2m-cat.s-critical { border-left-color: var(--accent); }
-.lk2m-cat.s-high { border-left-color: var(--confirm); }
-.lk2m-cat.s-medium { border-left-color: var(--ink-3); }
-.lk2m-cat-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.lk2m-cat-h b { font-size: 14px; font-weight: 600; color: var(--ink); }
-.lk2m-sev { font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
-.lk2m-n { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); }
-.lk2m-cat p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
-.lk2m-do { margin-top: 7px !important; color: var(--ink-3) !important; }
-.lk2m-do span {
-  font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--accent); margin-right: 7px;
-}
-
-/* The orbit breaks OUT of its column on the search screen, where the report is narrow
-   and the graph needs the window. Inside the demo card it has a card to fit, and the
-   breakout pushed its panel off the right edge. */
-.lk2m .lk2-orbit { width: 100%; margin-left: 0; transform: none; grid-template-columns: minmax(0, 1fr) 282px; }
-.lk2m .lk2-orbit-svg { min-height: 0; }
-.lk2m .lk2-orbit-side { position: static; }
-@media (max-width: 900px) { .lk2m .lk2-orbit { grid-template-columns: 1fr; } }
-
-.lk2m-foot { margin: 14px 0 0; padding: 12px 20px 0; font-size: 12px; line-height: 1.6; color: var(--ink-4); border-top: 1px solid var(--bd-subtle); }
-.lk2m-foot code { font-family: var(--font-mono); font-size: 11px; }
-
-@media (max-width: 680px) {
-  .lk2m-tabs { overflow-x: auto; }
-  .lk2m-tabs button { padding: 11px 14px; white-space: nowrap; }
-  .lk2m-body { padding: 18px 15px 20px; }
-  .lk2m-bar { padding: 12px 15px; }}
-
-.lk2-lp-trust { max-width: var(--page); margin: 0 auto; padding: 72px 0 0; text-align: left; }
-.lk2-lp-trust > p { color: var(--ink-2); font-size: 16px; line-height: 1.7; margin: 0 0 32px; max-width: 62ch; }
-.lk2-lp-trust > p em { font-style: italic; color: var(--ink); }
-
-.lk2-foot { max-width: var(--page); margin: 112px auto 0; padding: 30px 0; border-top: 1px solid var(--bd); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.lk2-foot-note { color: var(--ink-4); font-size: 13px; }
-
-@media (max-width: 760px) {
-  .lk2-steps, .lk2-views { grid-template-columns: 1fr; }}
-
-/* ======================================================================
-   SEARCH SURFACE, what the previous self-check did not need.
-
-   Three additions, and each exists to keep a claim honest rather than to
-   decorate: the READING of the input (what we think you gave us, and what
-   it costs, before anything is spent), the declared BASIS, and the
-   consolidated SUBJECT with the other people a loose query dragged in.
-   ====================================================================== */
-
-/* ---- read-back: what the tool thinks it was given ---- */
-.lk2-read {
-  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
-  gap: 10px; max-width: 560px; margin: 18px auto 0; padding: 11px 14px;
-  border: 1px solid var(--bd); border-radius: var(--r-md); background: var(--bg-1);
-  animation: lk2-rise .3s var(--ease) both;
-}
 .lk2-read-k { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
 .lk2-read b { font-size: 13px; color: var(--ink); font-weight: 600; }
 .lk2-read code { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); word-break: break-all; }
@@ -1187,11 +948,7 @@ body::after {
 @keyframes lk2-fade { from { opacity: 0; } to { opacity: 1; } }
 
 @media (max-width: 860px) {
-  .lk2-steps { grid-template-columns: 1fr; gap: 0; }
-  .lk2-step { border-left: 0; border-top: 1px solid var(--bd); padding: 22px 0 0; margin-top: 22px; }
-  .lk2-step:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
-  .lk2-views { grid-template-columns: 1fr; gap: 0; }
-  .lk2-vcard:nth-child(2) { border-top: 1px solid var(--bd-subtle); padding-top: 22px; }}
+  .lk2-steps { grid-template-columns: 1fr; gap: 0; }}
 
 /* ======================================================================
    ADMIN, the screen that had no stylesheet at all.
@@ -1377,40 +1134,6 @@ body::after {
 .adm-grantbox input { width: 60px; background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--r-xs); color: var(--ink); font-family: var(--font-mono); font-size: 11px; padding: 3px 6px; outline: none; }
 .adm-grantbox input:focus { border-color: var(--accent); }
 
-/* ======================================================================
-   SIFT, the product's argument, drawn.
-
-   The SORTED state is the base state, written in the markup. The animation
-   runs backwards from the undifferentiated look and lands on it, so with
-   every animation stripped, reduced motion, an old engine, a renderer that
-   never paints a second frame, the picture still says what it means.
-   Hairlines and one accent, like everything else. It plays once; a loop in
-   the corner of a page is a distraction the third time past it.
-   ====================================================================== */
-.sift {
-  display: grid; grid-template-columns: 130px 1fr 150px; gap: 24px; align-items: center;
-  border: 1px solid var(--bd); border-radius: var(--r-lg); background: var(--bg-1);
-  padding: 26px 24px; margin: 8px 0 32px;
-}
-.sift-col { display: flex; flex-direction: column; gap: 3px; }
-.sift-cap { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-4); }
-.sift-n { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--ink-2); line-height: 1; font-variant-numeric: tabular-nums; }
-.sift-out { text-align: right; align-items: flex-end; }
-/* the two outcomes, told apart by weight rather than by a second hue */
-.sift-out .sift-n { color: var(--accent); }
-.sift-cap-2 { margin-top: 14px; }
-.sift-n-2 { color: var(--ink-4) !important; font-size: 18px; }
-
-.sift-rows { display: flex; flex-direction: column; gap: 7px; }
-.sift-row {
-  display: flex; align-items: center; gap: 7px; height: 22px;
-  padding: 0 10px; border: 1px solid var(--bd-subtle); border-radius: var(--r-xs);
-  background: var(--bg-2);
-}
-.sift-mark { width: 3px; height: 11px; border-radius: 2px; background: var(--bd-strong); }
-.sift-cell { height: 4px; border-radius: 2px; background: var(--bd-strong); opacity: .5; }
-.sift-label { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-4); }
-
 /* --- the base state IS the sorted one --- */
 .sift-row.mine { transform: translateX(-10px); border-color: var(--accent); background: var(--accent-tint); }
 .sift-row.mine .sift-mark { background: var(--accent); }
@@ -1428,12 +1151,9 @@ body::after {
 .sift-row.mine  { animation: sift-settle .8s var(--ease) both; animation-delay: calc(var(--i) * 55ms + .35s); }
 .sift-row.other { animation: sift-drift .8s var(--ease) both;  animation-delay: calc(var(--i) * 55ms + .35s); }
 .sift-row.mine .sift-mark { animation: sift-mark-on .8s var(--ease) both; animation-delay: calc(var(--i) * 55ms + .35s); }
-.sift-label { animation: lk2-fade .5s var(--ease) both; animation-delay: calc(var(--i) * 55ms + .75s); }
 
 @media (max-width: 860px) {
   .sift { grid-template-columns: 1fr; gap: 16px; }
-  .sift-out { text-align: left; align-items: flex-start; }
-  .sift-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sift-row, .sift-mark, .sift-label { animation: none !important; }
@@ -1448,27 +1168,6 @@ body::after {
    loses atmosphere and not a word.
    ====================================================================== */
 .deepfield { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-
-.lk2-hero-deep { position: relative; isolation: isolate; }
-.lk2-hero-field {
-  z-index: -1;
-  /* FULL BLEED. The creature lived inside the page column, so it only ever occupied the
-     left margin of a centred block, stray curves beside the type rather than an animal
-     the page sits inside. It spans the window now. */
-  left: 50%; width: 100vw; margin-left: -50vw;
-  /* One radial, and the hole is in the MIDDLE: the field is at full strength at the
-     edges, where the arms arrive from, and fades out under the headline, which is the
-     one place it must not compete. The old mask was centred at 32%/46% and faded the
-     far side instead, the opposite of what the composition needed.
-
-     The hole is shallow rather than empty: cut to nothing, the middle third of a
-     full-bleed band is dead space and the arms appear to stop at an invisible wall. A
-     fifth of the field still reads behind the headline, which is enough to be water
-     and not enough to be read as a line through the type. */
-  -webkit-mask-image: radial-gradient(ellipse 40% 44% at 50% 42%, rgba(0,0,0,.2) 8%, rgba(0,0,0,.6) 48%, #000 84%);
-  mask-image: radial-gradient(ellipse 40% 44% at 50% 42%, rgba(0,0,0,.2) 8%, rgba(0,0,0,.6) 48%, #000 84%);
-  opacity: 1;
-}
 /* the hero's own text must never have to compete with it */
 .lk2-hero-deep > *:not(.deepfield) { position: relative; }
 .adm-grant-off { color: var(--ink-4); font-family: var(--font-mono); font-size: 11px; padding: 0 6px; cursor: default; }
@@ -1656,3 +1355,118 @@ body::after {
 .lk2-pin.done { color: var(--accent); border-color: var(--accent-dim); }
 .lk2-pin.fail { opacity: 1; color: var(--reject); border-color: var(--reject); }
 @media (hover: none) { .lk2-pin { opacity: .75; } }
+
+/* ======================================================================
+   DASHBOARD, the front page for people who work here.
+
+   Three questions in order: what am I in the middle of, what did I do
+   last, and can I start something now. No counters nobody acts on: a
+   dashboard made of numbers trains people to stop reading it, and the
+   first thing skipped is the one line that mattered.
+   ====================================================================== */
+.dsh-main { max-width: var(--page); margin: 0 auto; padding: 24px 0 90px; }
+.dsh-who { font-size: 13px; color: var(--ink-3); margin: 0 0 22px; }
+.dsh-who span { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
+.dsh-off { color: var(--ink-3); font-size: 14px; margin: 8px 0; }
+.dsh-err { font-style: normal; font-size: 12px; color: var(--accent); }
+.dsh-note { margin: 12px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-4); }
+.dsh-go { display: inline-block; margin-top: 12px; color: var(--accent); font-size: 14px; }
+
+/* the two things that stop work, if either is true */
+.dsh-warn {
+  border: 1px solid var(--accent); border-left-width: 2px; border-radius: var(--r-sm);
+  background: var(--accent-tint); padding: 11px 14px; margin: 0 0 18px;
+  font-size: 13.5px; line-height: 1.55; color: var(--ink);
+}
+.dsh-warn a { color: var(--accent); }
+.lk2-bal.empty { color: var(--accent); border-color: var(--accent); }
+
+.dsh-start { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; margin-bottom: 34px; }
+@media (max-width: 760px) { .dsh-start { grid-template-columns: 1fr; } }
+.dsh-start label { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 7px; }
+.dsh-start > form > div { display: flex; gap: 8px; }
+.dsh-start input {
+  flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--bd);
+  border-radius: var(--r-sm); padding: 10px 13px; color: var(--ink); font: inherit; font-size: 14px;
+}
+.dsh-start input:focus { outline: none; border-color: var(--ctl-bd); }
+.dsh-start button {
+  background: var(--accent); color: #140a04; border: 0; border-radius: var(--r-sm);
+  padding: 10px 18px; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.dsh-start button:disabled { opacity: .4; cursor: not-allowed; }
+
+.dsh-sec { margin-bottom: 32px; }
+.dsh-sec > h2 {
+  font-weight: 600; font-size: 16px; margin: 0 0 12px; letter-spacing: -.012em;
+  padding-bottom: 9px; border-bottom: 1px solid var(--bd);
+}
+.dsh-sec > h2 em { font-style: normal; font-family: var(--font-mono); font-size: 12px; color: var(--ink-4); margin-left: 9px; }
+
+.dsh-cases { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 9px; }
+.dsh-cases a {
+  display: block; padding: 13px 15px; border: 1px solid var(--bd-subtle); border-radius: var(--r-md);
+  background: var(--bg-1); text-decoration: none; transition: border-color .14s, background .14s;
+}
+.dsh-cases a:hover { border-color: var(--bd); background: var(--bg-2); }
+/* open more than a fortnight: finished and not closed, or forgotten */
+.dsh-cases li.stale a { border-left: 2px solid var(--confirm); }
+.dsh-cases code { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-bottom: 3px; }
+.dsh-cases b { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.dsh-cases span { display: block; font-size: 12px; color: var(--ink-3); }
+.dsh-cases em { display: block; font-style: normal; font-size: 11px; color: var(--ink-4); margin-top: 2px; }
+
+.dsh-recent { list-style: none; margin: 0; padding: 0; }
+.dsh-recent li { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--bd-subtle); }
+.dsh-recent button { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; text-align: left; }
+.dsh-recent code { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); transition: color .14s; }
+.dsh-recent button:hover code { color: var(--accent); }
+.dsh-case { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; color: var(--ink-4); border: 1px solid var(--bd-subtle); border-radius: var(--r-xs); padding: 1px 6px; }
+.dsh-recent em { margin-left: auto; font-style: normal; font-size: 11px; color: var(--ink-4); }
+
+/* ---- a domain: the roster ----
+   Ordered by what has to happen today, not by what is interesting. */
+.dmn-head { margin-bottom: 22px; }
+.dmn-head h1 { font-family: var(--font-mono); font-size: clamp(20px, 2.4vw, 26px); font-weight: 600; margin: 8px 0 6px; color: var(--ink); }
+.dmn-sum { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-2); max-width: 74ch; }
+.dmn-off { color: var(--ink-3); font-size: 13.5px; line-height: 1.6; margin: 8px 0 0; max-width: 72ch; }
+
+.dmn-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.dmn-stat { border: 1px solid var(--bd-subtle); border-radius: var(--r-md); padding: 13px 15px; background: var(--bg-1); }
+.dmn-stat.hot { border-left: 2px solid var(--accent); }
+.dmn-stat b { display: block; font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: var(--ink); line-height: 1.1; }
+.dmn-stat.hot b { color: var(--accent); }
+.dmn-stat span { font-size: 12px; color: var(--ink-3); }
+
+.dmn-do { border: 1px solid var(--bd); border-left: 2px solid var(--accent); border-radius: var(--r-md); padding: 15px 18px; margin-bottom: 28px; background: var(--bg-1); }
+.dmn-do h2 { margin: 0 0 9px; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+.dmn-do ol { margin: 0; padding-left: 20px; }
+.dmn-do li { font-size: 14px; line-height: 1.6; color: var(--ink-2); margin-bottom: 7px; }
+
+.dmn-sec { margin-bottom: 30px; }
+.dmn-sec > h2 { font-weight: 600; font-size: 16px; margin: 0 0 12px; padding-bottom: 9px; border-bottom: 1px solid var(--bd); }
+.dmn-sec > h2 em { font-style: normal; font-family: var(--font-mono); font-size: 12px; color: var(--ink-4); margin-left: 9px; }
+
+.dmn-accs { list-style: none; margin: 0; padding: 0; }
+.dmn-acc { padding: 12px 0 12px 11px; border-left: 2px solid var(--bd-subtle); border-bottom: 1px solid var(--bd-subtle); }
+.dmn-acc.s-critical { border-left-color: var(--accent); }
+.dmn-acc.s-high { border-left-color: var(--confirm); }
+.dmn-acc.s-medium { border-left-color: var(--ink-3); }
+.dmn-acc-h { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.dmn-acc-h code { font-family: var(--font-mono); font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.dmn-acc-h .lk2-link { margin-left: auto; }
+.dmn-tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-4); border: 1px solid var(--bd-subtle); border-radius: var(--r-xs); padding: 1px 6px; }
+.dmn-tag.hot { color: var(--accent); border-color: var(--accent); }
+.dmn-acc-m { margin-top: 4px; }
+.dmn-acc-m span { display: block; font-size: 12px; line-height: 1.5; color: var(--ink-4); }
+.dmn-acc .lk2-reveal-btn { margin-top: 7px; }
+
+.dmn-dbs { list-style: none; margin: 0; padding: 0; }
+.dmn-dbs li { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--bd-subtle); }
+.dmn-dbs li.stealer code { color: var(--accent); }
+.dmn-dbs code { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
+.dmn-dbs span { font-size: 12px; color: var(--ink-4); margin-left: auto; }
+.dmn-dbs em { font-style: normal; font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.csr-exports { margin-left: 14px; display: inline-flex; gap: 12px; }
+.csr-exports a { font-size: 12px; color: var(--ink-3); text-decoration: none; transition: color .14s; }
+.csr-exports a:hover { color: var(--accent); }
