@@ -1,0 +1,44 @@
+# Who may talk to the database: the application, and nothing else.
+#
+# WORTH CHECKING BEFORE YOU RELY ON IT. k3s bundles kube-router's network policy
+# controller and enforces these by default, but a cluster started with
+# `--disable-network-policy`, or running a replacement CNI, will ACCEPT this object and
+# enforce nothing. A policy that is accepted and ignored is worse than no policy,
+# because it reads like a control. Verify it: from a pod in another namespace, try to
+# open 5432 on octopus-db and watch it fail.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-from-app-only
+  namespace: octopus
+spec:
+  podSelector:
+    matchLabels: { app: octopus-db }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: octopus-csirt }
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# The application accepts traffic from the ingress controller only. Anything else in the
+# cluster that wants to reach it has to go through the front door, where sessions are
+# checked and queries are logged.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-from-ingress-only
+  namespace: octopus
+spec:
+  podSelector:
+    matchLabels: { app: octopus-csirt }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { "kubernetes.io/metadata.name": kube-system }
+      ports:
+        - protocol: TCP
+          port: 3000

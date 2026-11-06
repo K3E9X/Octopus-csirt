@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octopus-csirt
+  namespace: octopus
+  labels:
+    app: octopus-csirt
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: octopus-csirt
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        app: octopus-csirt
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001          # the nextjs user the Dockerfile creates
+        runAsGroup: 1001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: app
+          # Built and pushed by you: see deploy/k3s/README.md. Pinned by digest or by a
+          # real tag, never :latest, because :latest makes a rollback impossible to
+          # describe and a rollout impossible to repeat.
+          image: ghcr.io/k3e9x/octopus-csirt:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            # Assembled from the database secret so the password exists in exactly one
+            # place. octopus-db-0 is the StatefulSet's stable pod name.
+            - name: PGUSER
+              valueFrom: { secretKeyRef: { name: octopus-db, key: username } }
+            - name: PGPASSWORD
+              valueFrom: { secretKeyRef: { name: octopus-db, key: password } }
+            - name: POSTGRES_URL
+              value: "postgres://$(PGUSER):$(PGPASSWORD)@octopus-db-0.octopus-db.octopus.svc.cluster.local:5432/octopus"
+            - name: OCTOPUS_SESSION_SECRET
+              valueFrom: { secretKeyRef: { name: octopus-app, key: sessionSecret } }
+            - name: OCTOPUS_AUDIT_SECRET
+              valueFrom: { secretKeyRef: { name: octopus-app, key: auditSecret } }
+            # Optional: an owner can paste the token into /admin instead, which keeps it
+            # out of the manifest and out of every pod's environment.
+            - name: LEAKOSINT_TOKEN
+              valueFrom: { secretKeyRef: { name: octopus-app, key: leakosintToken, optional: true } }
+            - name: OCTOPUS_ADMIN_GRANT_MAX
+              value: "500"
+          # Liveness asks whether THIS PROCESS is serving, and deliberately does not
+          # check the database: a probe that fails during a database outage restarts a
+          # pod that still cannot reach the database, turning an outage into a crash
+          # loop that also takes down the part that was still working.
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            # Next writes its image cache and temporary files under these. With a
+            # read-only root filesystem they have to be real mounts or the server
+            # fails on the first request that touches either.
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: octopus-csirt
+  namespace: octopus
+spec:
+  selector:
+    app: octopus-csirt
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Traefik is k3s's bundled ingress controller, so this needs nothing installed.
+#
+# TLS: uncomment the block and point it at a Secret holding the certificate. If the
+# cluster runs cert-manager, add the issuer annotation instead and it will fill the
+# Secret in. SERVE THIS OVER TLS: the session cookie and every selector an analyst types
+# cross this hop, and "it is internal" has never been a property of a network.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: octopus-csirt
+  namespace: octopus
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # cert-manager.io/cluster-issuer: internal-ca
+spec:
+  rules:
+    - host: octopus.internal          # change to the name the team will actually type
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: octopus-csirt
+                port: { name: http }
+  # tls:
+  #   - hosts: [octopus.internal]
+  #     secretName: octopus-tls

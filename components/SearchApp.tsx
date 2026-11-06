@@ -17,7 +17,7 @@
 //   who merely share part of the query are shown in their own section. A name search
 //   rendered as one person's report is a convincing document that is wrong.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { OctoMark } from "./OctoMark";
@@ -352,6 +352,94 @@ function Scanning({ subject }: { subject: string }) {
 
 // ---- step: report ---------------------------------------------------------------------
 
+// ---- pinning, from anywhere in a report ----------------------------------------------
+//
+// A finding is worth something when it lands in a case, and until now the only way to
+// get it there was to retype it on the case screen. The button belongs next to the
+// value, which means it has to be reachable from eight components nested four deep.
+// Threading a callback through all of them would put a prop nobody reads on every one
+// of them; a context puts it exactly where it is used.
+//
+// The case is addressed by the REFERENCE the operator typed, because that is what they
+// have in front of them. A report with no case reference shows no pin buttons rather
+// than dead ones: an affordance that does nothing is worse than an absent one, and the
+// header says how to turn them on.
+
+interface PinTarget {
+  ref: string;
+  subject: string;
+  subjectKind: string;
+  pin: (f: { label: string; value: string; source: string; category: string; severity: string }) => void;
+  state: Record<string, "busy" | "done" | "fail">;
+}
+const PinCtx = createContext<PinTarget | null>(null);
+const pinKey = (label: string, value: string) => label + "\u0000" + value;
+
+function Pin({ label, value, source, category, severity }: {
+  label: string; value: string; source: string; category: string; severity: string;
+}) {
+  const ctx = useContext(PinCtx);
+  if (!ctx || !ctx.ref) return null;
+  const st = ctx.state[pinKey(label, value)];
+  return (
+    <button
+      className={"lk2-pin" + (st ? " " + st : "")}
+      title={st === "done" ? `in ${ctx.ref}` : `pin to ${ctx.ref}`}
+      disabled={st === "busy" || st === "done"}
+      onClick={() => ctx.pin({ label, value, source, category, severity })}>
+      {st === "done" ? "pinned" : st === "fail" ? "failed" : st === "busy" ? "…" : "pin"}
+    </button>
+  );
+}
+
+/**
+ * Which case this report is filing into, settable from the report itself.
+ *
+ * The reference can be typed before the search, and the audit trail files the query
+ * under it. But a hunter who did not type one and then finds something is not going to
+ * re-run a paid search to turn the pin buttons on, so it is editable here too. The
+ * query stays logged under whatever was declared when it ran, which is the honest
+ * record; what changes is only where the findings get filed.
+ */
+function CaseBar({ ref_, setRef, err, subject }: { ref_: string; setRef: (v: string) => void; err: string; subject: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const canCreate = /No case answers to/i.test(err);
+
+  async function create() {
+    setBusy(true); setMsg("");
+    const r = await fetch("/api/case", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "open", ref: ref_, title: `Opened from a search for ${subject}` }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setBusy(false);
+    setMsg(r.ok ? `${ref_} is open. Pin again.` : d?.error || "could not open it");
+  }
+
+  return (
+    <div className="lk2-casebar">
+      {ref_ && !open ? (
+        <>
+          <span>filing findings under <code>{ref_}</code></span>
+          <button className="lk2-link" onClick={() => setOpen(true)}>change</button>
+          <Link className="lk2-link" href={`/cases`}>open the case</Link>
+        </>
+      ) : (
+        <>
+          <label htmlFor="casebar">file findings under</label>
+          <input id="casebar" value={ref_} placeholder="case reference"
+            onChange={(e) => setRef(e.target.value)} onBlur={() => setOpen(false)} autoFocus={open} />
+          {!ref_ && <span className="lk2-casebar-hint">a reference turns the pin buttons on</span>}
+        </>
+      )}
+      {err && <em className="lk2-casebar-err">{err}{canCreate && <button className="lk2-link" disabled={busy} onClick={create}>open it</button>}</em>}
+      {msg && <em className="lk2-casebar-ok">{msg}</em>}
+    </div>
+  );
+}
+
 function ReportView({ report, headline, view, setView, reset, trail, onHop, onBack, onBalance, caseRef }: {
   report: Report; headline: string; view: View; setView: (v: View) => void; reset: () => void; caseRef?: string;
   trail: { label: string; report: Report; headline: string }[];
@@ -360,8 +448,35 @@ function ReportView({ report, headline, view, setView, reset, trail, onHop, onBa
   onBalance: (b: number) => void;
 }) {
   const hasHi = report.highlights.financial.length > 0 || report.highlights.passwords.length > 0;
+
+  // The case this report files into, and a record of what has already gone in, so a
+  // second click while the first is in flight cannot pin the same value twice.
+  const [pinState, setPinState] = useState<Record<string, "busy" | "done" | "fail">>({});
+  const [pinErr, setPinErr] = useState("");
+  const [ref, setRef] = useState(caseRef || "");
+  useEffect(() => { setRef(caseRef || ""); }, [caseRef]);
+
+  const pin = useCallback(async (f: { label: string; value: string; source: string; category: string; severity: string }) => {
+    const k = pinKey(f.label, f.value);
+    setPinState((prev) => ({ ...prev, [k]: "busy" }));
+    setPinErr("");
+    const res = await fetch("/api/case", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "pin-ref", ref, subject: report.subject.raw, subjectKind: report.subject.kind, ...f }),
+    }).catch(() => null);
+    const d = await res?.json().catch(() => ({}));
+    if (!res?.ok) {
+      setPinState((prev) => ({ ...prev, [k]: "fail" }));
+      setPinErr(d?.error || "could not pin that");
+      return;
+    }
+    setPinState((prev) => ({ ...prev, [k]: "done" }));
+  }, [ref, report.subject.raw, report.subject.kind]);
+
   return (
+    <PinCtx.Provider value={{ ref, subject: report.subject.raw, subjectKind: report.subject.kind, pin, state: pinState }}>
     <section className="lk2-report">
+      <CaseBar ref_={ref} setRef={setRef} err={pinErr} subject={report.subject.raw} />
       {trail.length > 1 && (
         <nav className="lk2-trail" aria-label="pivot trail">
           {trail.map((h, i) => (
@@ -450,6 +565,7 @@ function ReportView({ report, headline, view, setView, reset, trail, onHop, onBa
         <button className="lk2-again" onClick={reset}>Search something else</button>
       </div>
     </section>
+    </PinCtx.Provider>
   );
 }
 
@@ -567,6 +683,7 @@ function Value({ f, tag, showSource }: { f: Finding; tag?: string; showSource?: 
       {tag && <span className="lk2-val-tag">{tag}</span>}
       <RowValue f={f} />
       {showSource && <span className="lk2-src-chip">{f.source}</span>}
+      <Pin label={f.label} value={f.value} source={f.source} category={f.category} severity={f.severity} />
     </div>
   );
 }
@@ -646,13 +763,23 @@ function IdentityPanel({ report }: { report: Report }) {
 function FacetValue({ facet, v }: { facet: string; v: ConsolidatedValue }) {
   const sensitive = facet === "password" || facet === "document";
   const [shown, setShown] = useState(!sensitive);
-  if (v.masked) return <code className="masked">{v.value}</code>;
-  if (!sensitive) return <code>{v.value}</code>;
+  // A consolidated value is carried by several databases, so the pinned fact names all
+  // of them. Pinning it under one would throw away the corroboration, which is the
+  // reason the value is worth anything.
+  const pin = (
+    <Pin label={FACET_LABEL[facet] || facet} value={v.value} source={v.sources.join(", ")}
+      category={facet === "username" ? "online" : facet} severity={sensitive ? "critical" : "medium"} />
+  );
+  if (v.masked) return <><code className="masked">{v.value}</code>{pin}</>;
+  if (!sensitive) return <><code>{v.value}</code>{pin}</>;
   return (
-    <button className={"lk2-reveal-btn" + (shown ? " shown" : "")} onClick={() => setShown((x) => !x)}>
-      <code>{shown ? v.value : "•".repeat(Math.min(14, Math.max(6, v.value.length)))}</code>
-      <span>{shown ? "hide" : "reveal"}</span>
-    </button>
+    <>
+      <button className={"lk2-reveal-btn" + (shown ? " shown" : "")} onClick={() => setShown((x) => !x)}>
+        <code>{shown ? v.value : "•".repeat(Math.min(14, Math.max(6, v.value.length)))}</code>
+        <span>{shown ? "hide" : "reveal"}</span>
+      </button>
+      {pin}
+    </>
   );
 }
 

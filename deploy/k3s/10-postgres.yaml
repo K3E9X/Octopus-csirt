@@ -1,0 +1,89 @@
+# Postgres, on the node's disk.
+#
+# A StatefulSet rather than a Deployment, and the reason is not style. A Deployment with
+# a PVC will happily run two pods against one volume during a rolling update, and two
+# postgres processes on one data directory is how a database is destroyed rather than
+# restarted. A StatefulSet guarantees the old pod is gone before the new one starts.
+#
+# k3s ships local-path as the default StorageClass, which means THIS VOLUME LIVES ON ONE
+# NODE. That is fine for an internal tool on a small cluster and it is not a backup:
+# if the node dies, so does the case history. Point `storageClassName` at Longhorn, an
+# NFS class or whatever the cluster actually has if that matters, and take dumps either
+# way (see deploy/k3s/README.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: octopus-db
+  namespace: octopus
+spec:
+  # headless: the StatefulSet's pod gets a stable name and we talk to it directly
+  clusterIP: None
+  selector:
+    app: octopus-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: octopus-db
+  namespace: octopus
+spec:
+  serviceName: octopus-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: octopus-db
+  template:
+    metadata:
+      labels:
+        app: octopus-db
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70          # the postgres user in the alpine image
+        fsGroup: 70            # so the mounted volume is writable without root
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_DB
+              value: octopus
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: octopus-db, key: username } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: octopus-db, key: password } }
+            # the data directory is a SUBDIRECTORY of the mount on purpose: initdb
+            # refuses to run in a directory that already contains lost+found
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "octopus", "-d", "octopus"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec: { command: ["pg_isready", "-U", "octopus", "-d", "octopus"] }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # omitted on purpose: k3s uses its default class (local-path) unless the
+        # cluster has another one marked default. Set it explicitly if yours does.
+        resources:
+          requests:
+            storage: 10Gi

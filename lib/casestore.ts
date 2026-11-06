@@ -129,6 +129,41 @@ export async function readCase(cid: string): Promise<{ file: CaseFile; entities:
   return { file: toCase(c), entities: ents.map(toEntity), facts: facts.map(toFact) };
 }
 
+/**
+ * A case by the reference a person actually says out loud.
+ *
+ * Pinning from a report has to work from the string typed into "file under", because
+ * that is what the hunter has in front of them; the case id is an implementation
+ * detail they never see.
+ */
+export async function caseByRef(ref: string): Promise<CaseFile | null> {
+  const q = sql();
+  if (!q || !(await init())) return null;
+  const [r] = await q`SELECT * FROM octopus_cases WHERE ref = ${String(ref || "").trim()}`;
+  return r ? toCase(r) : null;
+}
+
+/**
+ * The selector a report is about, as an entity in the case.
+ *
+ * Find-or-create, because the alternative is making somebody add the selector by hand
+ * before they can pin the first thing they found on it. The unique index is what makes
+ * this safe under two tabs: the insert either wins or loses, and the loser reads the
+ * row that won rather than creating a second node for one address.
+ */
+export async function entityFor(cid: string, kind: EntityKind, value: string, label: string, by: string): Promise<string | null> {
+  const q = sql();
+  if (!q || !(await init())) return null;
+  const v = String(value || "").trim().slice(0, 300);
+  if (!v) return null;
+  const [existing] = await q`SELECT id FROM octopus_case_entities WHERE case_id = ${cid} AND kind = ${kind} AND value = ${v}`;
+  if (existing) return existing.id;
+  const r = await addEntity(cid, kind, v, label, by);
+  if (r.ok) return r.id;
+  const [raced] = await q`SELECT id FROM octopus_case_entities WHERE case_id = ${cid} AND kind = ${kind} AND value = ${v}`;
+  return raced ? raced.id : null;
+}
+
 export async function addEntity(cid: string, kind: EntityKind, value: string, label: string, by: string) {
   const q = sql();
   if (!q || !(await init())) return { ok: false as const, error: "no database" };

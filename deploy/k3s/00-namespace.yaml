@@ -1,0 +1,8 @@
+# Everything lives in one namespace so it can be looked at, quota'd and deleted as one
+# thing. A CSIRT tool that is scattered across default/ is a tool nobody can audit.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: octopus
+  labels:
+    app.kubernetes.io/name: octopus-csirt

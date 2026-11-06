@@ -1623,3 +1623,36 @@ body::after {
 .csr-test.broke { border-left-color: var(--accent); }
 .csr-test h3 { margin: 0 0 7px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .csr-test p { margin: 0 0 9px; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+
+/* ---- pinning a finding into a case ----
+   Quiet until it is useful: absent with no case reference, grey next to a value, and
+   the one moment it is loud is the moment it confirms. */
+.lk2-casebar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 13px; margin-bottom: 16px; font-size: 13px; color: var(--ink-3);
+  border: 1px solid var(--bd-subtle); border-radius: var(--r-sm); background: var(--bg-1);
+}
+.lk2-casebar code { font-family: var(--font-mono); color: var(--accent); }
+.lk2-casebar label { font-size: 12px; color: var(--ink-4); }
+.lk2-casebar input {
+  background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--r-xs);
+  padding: 5px 9px; color: var(--ink); font: inherit; font-family: var(--font-mono); font-size: 12px; width: 190px;
+}
+.lk2-casebar-hint { font-size: 12px; color: var(--ink-4); }
+.lk2-casebar-err, .lk2-casebar-ok { font-style: normal; font-size: 12px; display: inline-flex; align-items: center; gap: 9px; }
+.lk2-casebar-err { color: var(--accent); }
+.lk2-casebar-ok { color: var(--ink-2); }
+
+.lk2-pin {
+  background: none; border: 1px solid var(--bd-subtle); border-radius: var(--r-xs);
+  padding: 1px 7px; cursor: pointer; font: inherit; font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4);
+  opacity: 0; transition: opacity .14s, color .14s, border-color .14s; flex: none;
+}
+/* it appears on approach rather than sitting on every row of a long report */
+.lk2-val:hover .lk2-pin, .lk2-fval:hover .lk2-pin, .lk2-pin:focus-visible { opacity: 1; }
+.lk2-pin:hover { color: var(--accent); border-color: var(--accent); }
+.lk2-pin.done, .lk2-pin.busy { opacity: 1; cursor: default; }
+.lk2-pin.done { color: var(--accent); border-color: var(--accent-dim); }
+.lk2-pin.fail { opacity: 1; color: var(--reject); border-color: var(--reject); }
+@media (hover: none) { .lk2-pin { opacity: .75; } }

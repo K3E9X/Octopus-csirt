@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser, authEnabled } from "@/lib/session-server";
 import { isAtLeast } from "@/lib/auth";
 import {
-  casesEnabled, listCaseFiles, openCase, readCase,
+  casesEnabled, listCaseFiles, openCase, readCase, caseByRef, entityFor,
   addEntity, pinFact, unpinFact, removeEntity, setCaseStatus,
 } from "@/lib/casestore";
 import { buildBoard, testFact, type EntityKind } from "@/lib/casework";
@@ -66,6 +66,39 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
   const action = String(body?.action || "");
   const cid = String(body?.caseId || "");
+
+  // ---- pinning straight off a report ----
+  // Addressed by REFERENCE, not id: that is the string the hunter typed into "file
+  // under" and the one they have in front of them. The selector the report is about
+  // becomes an entity if it is not one yet, because making somebody add it by hand
+  // before they can pin the first thing they found on it is how a feature goes unused.
+  if (action === "pin-ref") {
+    const ref = String(body?.ref || "").trim();
+    if (!ref) return NextResponse.json({ error: "no case reference" }, { status: 400 });
+    const file = await caseByRef(ref);
+    // No silent creation. A typo would quietly open a case and file evidence into it,
+    // and nobody would find it again; the interface offers to create it instead.
+    if (!file) return NextResponse.json({ error: `No case answers to ${ref}.`, canCreate: true }, { status: 404 });
+    if (file.status === "closed") return NextResponse.json({ error: `${ref} is closed. Reopen it first.` }, { status: 409 });
+
+    const kind = KINDS.includes(body?.subjectKind) ? (body.subjectKind as EntityKind) : "other";
+    const eid = await entityFor(file.id, kind, String(body?.subject || ""), String(body?.subjectLabel || ""), user.email);
+    if (!eid) return NextResponse.json({ error: "could not file that selector" }, { status: 400 });
+
+    const sev = SEVERITIES.includes(body?.severity) ? body.severity : "medium";
+    const r = await pinFact(file.id, {
+      entityId: eid,
+      category: String(body?.category || "other"),
+      severity: sev,
+      label: String(body?.label || "value"),
+      value: String(body?.value || ""),
+      source: String(body?.source || "unstated"),
+      addedBy: user.email,
+    });
+    // Already pinned is not a failure the hunter needs to see as one: the fact is in
+    // the case, which is what they asked for.
+    return NextResponse.json({ ok: true, caseId: file.id, ref, already: !r.ok });
+  }
 
   if (action === "open") {
     const r = await openCase(String(body?.ref || ""), String(body?.title || ""), user.email);
