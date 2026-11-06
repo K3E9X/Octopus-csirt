@@ -16,6 +16,7 @@ interface Source { source: "stored" | "environment" | "none"; tail?: string; len
 export default function Admin({ me, disabledReason }: { me?: { id: string; email: string }; disabledReason?: string }) {
   const [users, setUsers] = useState<U[]>([]);
   const [build, setBuild] = useState("");
+  const [sessions, setSessions] = useState<any[]>([]);
   const [cache, setCache] = useState<any[]>([]);
   const [cacheHours, setCacheHours] = useState(0);
   const [activity, setActivity] = useState<A[]>([]);
@@ -39,6 +40,7 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
     setRole(d.me?.role || "admin");
     setCap(d.grantCap ?? 500);
     setBuild(d.build || "");
+    setSessions(d.sessions || []);
     setCache(d.cache || []);
     setCacheHours(d.cacheHours ?? 0);
   }
@@ -103,6 +105,8 @@ export default function Admin({ me, disabledReason }: { me?: { id: string; email
       {msg && <div className="adm-msg">{msg}</div>}
 
       <SourceKey source={source} storable={storable} onDone={(m) => { setMsg(m); setTimeout(() => setMsg(""), 6000); load(); }} />
+
+      <Sessions rows={sessions} users={users} onDone={(m) => { setMsg(m); setTimeout(() => setMsg(""), 5000); load(); }} />
 
       <KeptAnswers rows={cache} hours={cacheHours} onDone={(m) => { setMsg(m); setTimeout(() => setMsg(""), 6000); load(); }} />
 
@@ -405,4 +409,70 @@ function KeptAnswers({ rows, hours, onDone }: { rows: any[]; hours: number; onDo
       </div>
     </section>
   );
+}
+
+
+/**
+ * Where accounts are signed in from.
+ *
+ * The question an administrator actually has after an incident is not "when was this
+ * account last used" but "where is it open, and is one of those a surprise". So a row
+ * per session, with the address it was last seen from and the browser it sent, and a
+ * button that cuts THAT ONE. Cutting a single session is the point of this being
+ * separate from revoking an account: somebody who left a browser open in a meeting room
+ * does not need to be locked out of their own desk.
+ */
+function Sessions({ rows, users, onDone }: { rows: any[]; users: any[]; onDone: (m: string) => void }) {
+  const emailOf = (id: string) => users.find((u) => u.id === id)?.email || id;
+  const when = (t: number) => {
+    const m = Math.round((Date.now() - t) / 60000);
+    if (m < 2) return "now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    return h < 48 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+  };
+  const kill = async (sid: string) => {
+    const r = await fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "session-kill", sid }) });
+    const d = await r.json().catch(() => ({}));
+    onDone(d?.note || d?.error || "done");
+  };
+  return (
+    <section>
+      <h2>Open sessions <em>{rows.length}</em></h2>
+      <p className="adm-note">
+        One row per browser an account is signed into. The address is whatever reached
+        the ingress, which is a header a client sends and so is a hint rather than an
+        identity. Cutting one leaves the others open; to cut all of them and refuse any
+        cookie afterwards, use <b>revoke</b> on the account.
+      </p>
+      {rows.length === 0 ? <p className="adm-empty">nobody is signed in</p> : (
+        <table className="datatable">
+          <thead><tr><th>account</th><th>last seen</th><th>opened</th><th>from</th><th>browser</th><th /></tr></thead>
+          <tbody>
+            {rows.map((x) => (
+              <tr key={x.sid}>
+                <td className="t-handle">{emailOf(x.userId)}</td>
+                <td>{when(x.lastSeen)}</td>
+                <td>{when(x.createdAt)}</td>
+                <td className="t-handle">{x.ip || "unknown"}</td>
+                <td className="adm-ua" title={x.agent || ""}>{shortAgent(x.agent)}</td>
+                <td><button className="adm-cut" onClick={() => kill(x.sid)}>sign out</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+/** The browser string, read down to what somebody can scan in a table. */
+function shortAgent(ua?: string): string {
+  if (!ua) return "unknown";
+  const os = /Windows NT 10/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS"
+    : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS"
+    : /Linux/.test(ua) ? "Linux" : "";
+  const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Chrome\//.test(ua) ? "Chrome"
+    : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+  return [br, os].filter(Boolean).join(" on ") || ua.slice(0, 28);
 }

@@ -137,10 +137,24 @@ is refunded, because it did not run.
 | `owner` | Holds the source token and the budget. Grants credit without limit. Claimed once, atomically, by the first registration. |
 | `admin` | Users, roles below owner, the audit trail, closing cases. Grants credit **to others**, bounded, never to itself. |
 | `hunter` | Investigates: cases, searches, pivots, exports. Sees its own queries and nobody else's. |
+| `pending` | Can sign in and see that the password works. Nothing else, until somebody lets them in. **Where every new account starts.** |
 | `disabled` | Nothing. |
 
 The split between owner and admin is the point rather than a tidier set of labels: an
 audit trail signed by someone who can also create the budget proves nothing.
+
+Self-registration is not a way in. A new account is `pending`: the credentials work and
+nothing else happens until an owner or an admin promotes it. A promoted account still
+starts with no balance, because being allowed in and being funded are two decisions.
+
+**Sessions.** `/admin` lists one row per browser an account is signed into, with the
+address it was last seen from and the browser it sent, and cuts one at a time. Cutting
+all of them is `revoke` on the account, which also stops any existing cookie being
+accepted: the cookie carries a generation and the account carries the one it honours.
+Changing a password bumps it, which is the reason people change passwords.
+
+**Your own account** is at `/profile`: what you are, what you have, your last queries,
+and the one thing you can change about yourself.
 
 ## The front page
 

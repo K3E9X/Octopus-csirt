@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listUsers, setRole, adminGrantCap, outranks, deleteUser, revokeSessions, getUser, type Role } from "@/lib/auth";
 import { listCache, dropCache, dropCacheFor, cacheHours, cacheEnabled } from "@/lib/searchcache";
 import { purgeAuditBefore } from "@/lib/audit";
+import { listSessions, killSession, killAllSessions } from "@/lib/sessions";
 import { requireAdmin, requireOwner, authEnabled } from "@/lib/session-server";
 import { listAudit, verifyAuditChain, auditEnabled } from "@/lib/audit";
 import { grant, balanceOf, ledgerOf, creditsToMicro, balanceCredits, creditsEnabled, trialNote } from "@/lib/credits";
@@ -38,6 +39,7 @@ export async function GET() {
   return NextResponse.json({
     configured: true, metered: creditsEnabled, users: withBalance, activity, chain,
     cache: cacheEnabled ? await listCache(60) : [], cacheHours: cacheHours(),
+    sessions: await listSessions().catch(() => []),
     source, storable: storedKeyAvailable, database, trial: creditsEnabled ? trialNote() : "",
     // what THIS caller is allowed to do, so the screen offers nothing it cannot deliver
     me: { id: caller.id, role: caller.role },
@@ -89,8 +91,28 @@ export async function POST(req: NextRequest) {
     if (target.id !== admin.id && !outranks(admin.role, target.role)) {
       return NextResponse.json({ error: `a ${admin.role} cannot act on a ${target.role}` }, { status: 403 });
     }
+    // Both halves. The epoch is what makes a cookie stop being accepted; the rows are
+    // what the list is drawn from, and leaving them behind would show sessions as open
+    // that nothing will honour.
+    const n = await killAllSessions(id);
     await revokeSessions(id);
-    return NextResponse.json({ ok: true, note: "Every session for that account is signed out." });
+    return NextResponse.json({ ok: true, note: `Signed out of ${n} session${n === 1 ? "" : "s"}. Any cookie for that account is refused from now on.` });
+  }
+
+  // Cutting ONE session and leaving the others open, which is the reason the rows
+  // exist at all: an account open from somewhere nobody recognises does not justify
+  // locking the person out of their own desk.
+  if (body?.action === "session-kill") {
+    const sid = String(body?.sid || "");
+    const all = await listSessions();
+    const row = all.find((x) => x.sid === sid);
+    if (!row) return NextResponse.json({ error: "no such session" }, { status: 404 });
+    const target = await getUser(row.userId);
+    if (target && target.id !== admin.id && !outranks(admin.role, target.role)) {
+      return NextResponse.json({ error: `a ${admin.role} cannot act on a ${target.role}` }, { status: 403 });
+    }
+    await killSession(sid);
+    return NextResponse.json({ ok: true, note: "That session is signed out. The others stay open." });
   }
 
   if (body?.action === "delete") {

@@ -76,13 +76,24 @@ test("a malformed address is left alone rather than mangled", () => {
 
 import { signSession } from "../lib/auth.ts";
 
-test("a cookie carries the generation it was issued under", () => {
+test("a cookie carries the generation AND the session it was issued for", () => {
   process.env.OCTOPUS_SESSION_SECRET = "a-long-enough-secret-for-tests";
-  const parts = signSession("usr_abc", 3).split(".");
-  // id . expiry . epoch . mac, and the epoch is signed with the rest rather than
-  // appended where it could be edited
-  assert.equal(parts.length, 4);
+  const parts = signSession("usr_abc", 3, "sid123").split(".");
+  // id . expiry . epoch . sid . mac. Both the generation and the session id are signed
+  // with the rest rather than appended where either could be edited: the generation is
+  // what cuts every session at once, the id is what cuts exactly one.
+  assert.equal(parts.length, 5);
   assert.equal(parts[0], "usr_abc");
   assert.equal(parts[2], "3");
-  assert.notEqual(signSession("usr_abc", 3).split(".")[3], signSession("usr_abc", 4).split(".")[3]);
+  assert.equal(parts[3], "sid123");
+  // changing either one changes the signature
+  assert.notEqual(parts[4], signSession("usr_abc", 4, "sid123").split(".")[4]);
+  assert.notEqual(parts[4], signSession("usr_abc", 3, "other").split(".")[4]);
+});
+
+test("two cookies for one account are two sessions", () => {
+  process.env.OCTOPUS_SESSION_SECRET = "a-long-enough-secret-for-tests";
+  const a = signSession("usr_abc", 0).split(".")[3];
+  const b = signSession("usr_abc", 0).split(".")[3];
+  assert.notEqual(a, b, "a fresh id per cookie is what makes them separately cuttable");
 });

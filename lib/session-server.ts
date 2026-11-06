@@ -1,7 +1,8 @@
 // Server-side session reading. Split from lib/auth so a server component can ask
 // "who is this?" without pulling the whole account module into a client bundle.
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { touchSession } from "./sessions";
 import { SESSION_COOKIE, readSession, getUser, authEnabled, sessionsUsable, isAtLeast, type User } from "./auth";
 
 export { authEnabled, sessionsUsable };
@@ -28,6 +29,15 @@ export async function currentUser(): Promise<User | null> {
   // makes a password change, or an administrator revoking access, take effect in every
   // browser on the next request rather than whenever a cookie happens to expire.
   if (claim.epoch !== user.sessEpoch) return null;
+  // And the session itself must still be one we accept. This is what makes cutting a
+  // SINGLE session possible: the signature stays valid, the row does not.
+  const h = headers();
+  const ok = await touchSession(
+    claim.sid,
+    (h.get("x-forwarded-for") || "").split(",")[0].trim() || undefined,
+    h.get("user-agent") || undefined,
+  ).catch(() => true);
+  if (!ok) return null;
   return user;
 }
 

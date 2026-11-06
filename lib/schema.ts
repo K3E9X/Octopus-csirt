@@ -50,9 +50,4 @@ export function bootstrap(run: () => Promise<void>): () => Promise<void> {
   };
 }
 
-/** For a single statement that may collide, inside a longer bootstrap. */
-export async function tolerate(p: Promise<unknown>): Promise<void> {
-  try { await p; } catch (e) { if (!alreadyExists(e)) throw e; }
-}
 
-export const isAlreadyExists = alreadyExists;

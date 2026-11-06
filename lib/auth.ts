@@ -335,28 +335,34 @@ export async function setRole(id: string, role: Role, actor: User): Promise<{ ok
  * to it, everywhere, at once, with no server-side session list to keep. Changing a
  * password bumps it, which is the whole reason people change passwords.
  */
-export function signSession(userId: string, epoch = 0): string {
+export function newSid(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+export function signSession(userId: string, epoch = 0, sid = newSid()): string {
   const exp = Date.now() + SESSION_DAYS * 86400_000;
-  const body = `${userId}.${exp}.${epoch}`;
+  const body = `${userId}.${exp}.${epoch}.${sid}`;
   const mac = createHmac("sha256", secret()).update(body).digest("base64url");
   return `${body}.${mac}`;
 }
 
-export function readSession(token?: string | null): { id: string; epoch: number } | null {
+/** The expiry a freshly signed cookie carries, so the session row can match it. */
+export const sessionExpiry = () => Date.now() + SESSION_DAYS * 86400_000;
+
+export function readSession(token?: string | null): { id: string; epoch: number; sid: string } | null {
   if (!token || !sessionsUsable()) return null;
   const parts = token.split(".");
-  // Cookies issued before the epoch existed have three parts and are not accepted. A
-  // forced sign-in once, at upgrade, is the correct price for making every session
-  // revocable afterwards.
-  if (parts.length !== 4) return null;
-  const [id, expRaw, epochRaw, mac] = parts;
-  const expected = createHmac("sha256", secret()).update(`${id}.${expRaw}.${epochRaw}`).digest("base64url");
+  // An older cookie has three or four parts and is not accepted. One forced sign-in at
+  // upgrade is the correct price for sessions that can be listed and cut individually.
+  if (parts.length !== 5) return null;
+  const [id, expRaw, epochRaw, sid, mac] = parts;
+  const expected = createHmac("sha256", secret()).update(`${id}.${expRaw}.${epochRaw}.${sid}`).digest("base64url");
   const a = Buffer.from(mac), b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   if (Number(expRaw) < Date.now()) return null;
   const epoch = Number(epochRaw);
-  if (!Number.isFinite(epoch)) return null;
-  return { id, epoch };
+  if (!Number.isFinite(epoch) || !sid) return null;
+  return { id, epoch, sid };
 }
 
 export const SESSION_MAX_AGE = SESSION_DAYS * 86400;

@@ -1,9 +1,10 @@
 // Sign in, register, sign out. One route, three intents.
 
 import { NextRequest, NextResponse } from "next/server";
-import { createUser, verifyUser, countUsers, bootstrapClaimed, signSession, SESSION_COOKIE, SESSION_MAX_AGE, authEnabled, sessionsUsable } from "@/lib/auth";
+import { createUser, verifyUser, countUsers, bootstrapClaimed, signSession, readSession, SESSION_COOKIE, SESSION_MAX_AGE, authEnabled, sessionsUsable, newSid, sessionExpiry } from "@/lib/auth";
 import { currentUser } from "@/lib/session-server";
 import { seedStarter, balanceOf, balanceCredits, creditsEnabled } from "@/lib/credits";
+import { openSession, killSession } from "@/lib/sessions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,19 @@ function setCookie(res: NextResponse, token: string) {
     secure: process.env.NODE_ENV === "production",
     maxAge: SESSION_MAX_AGE,
   });
+}
+
+/**
+ * The address the request came from, as far as it can be known.
+ *
+ * Behind an ingress this is the forwarded header and nothing else is available. It is
+ * recorded so an administrator can see an account open from somewhere nobody
+ * recognises; it is NOT treated as identity, because a header a client sends is a
+ * header a client chooses.
+ */
+function clientIp(req: NextRequest): string | undefined {
+  const fwd = req.headers.get("x-forwarded-for") || "";
+  return fwd.split(",")[0].trim() || req.headers.get("x-real-ip") || undefined;
 }
 
 export async function POST(req: NextRequest) {
@@ -28,6 +42,11 @@ export async function POST(req: NextRequest) {
   const action = String(body?.action || "signin");
 
   if (action === "signout") {
+    // Close the row too. A cookie cleared in one browser with the row left behind
+    // leaves a session an administrator can still see as open, which is a list that
+    // lies rather than a list.
+    const claim = readSession(req.cookies.get(SESSION_COOKIE)?.value);
+    if (claim?.sid) await killSession(claim.sid).catch(() => {});
     const res = NextResponse.json({ ok: true });
     res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
     return res;
@@ -41,7 +60,11 @@ export async function POST(req: NextRequest) {
     if (r.error || !r.user) return NextResponse.json({ error: r.error || "could not create the account" }, { status: 400 });
     await seedStarter(r.user.id);   // a welcome balance so the first search needs no admin round-trip
     const res = NextResponse.json({ ok: true, user: r.user, firstAccount: r.user.role === "admin" });
-    setCookie(res, signSession(r.user.id, r.user.sessEpoch));
+    // The row is what an administrator can delete to cut this one session while the
+  // others stay open; the signature alone cannot be taken back.
+  { const sid = newSid();
+    setCookie(res, signSession(r.user.id, r.user.sessEpoch, sid));
+    await openSession(sid, r.user.id, sessionExpiry(), clientIp(req), req.headers.get("user-agent") || undefined).catch(() => {}); }
     return res;
   }
 
@@ -50,7 +73,9 @@ export async function POST(req: NextRequest) {
   // help, and telling a disabled account it is disabled is the same leak
   if (!user) return NextResponse.json({ error: "wrong address or password, or the account is disabled" }, { status: 401 });
   const res = NextResponse.json({ ok: true, user });
-  setCookie(res, signSession(user.id, user.sessEpoch));
+  { const sid = newSid();
+    setCookie(res, signSession(user.id, user.sessEpoch, sid));
+    await openSession(sid, user.id, sessionExpiry(), clientIp(req), req.headers.get("user-agent") || undefined).catch(() => {}); }
   return res;
 }
 
